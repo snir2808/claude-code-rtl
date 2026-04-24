@@ -73,3 +73,47 @@ export async function removePatch(htmlPath: string): Promise<boolean> {
   await fs.promises.writeFile(htmlPath, removePatchFromContent(content), 'utf8');
   return true;
 }
+
+// --- Claude Code CSS patching ---
+
+const CSS_PATCH = [
+  '/* bidi-rtl-patch-start */',
+  'body,#root{direction:rtl;unicode-bidi:embed}',
+  '/* bidi-rtl-patch-end */',
+].join('\n');
+
+export function isCssPatched(content: string): boolean {
+  return content.includes('/* bidi-rtl-patch-start */');
+}
+
+export function applyCssPatchToContent(content: string): string {
+  if (isCssPatched(content)) {
+    return content;
+  }
+  return content + '\n' + CSS_PATCH;
+}
+
+export function removeCssPatchFromContent(content: string): string {
+  return content.replace(
+    /\n?\/\* bidi-rtl-patch-start \*\/[\s\S]*?\/\* bidi-rtl-patch-end \*\//,
+    ''
+  );
+}
+
+export async function applyCssPatch(cssPath: string): Promise<boolean> {
+  const content = await fs.promises.readFile(cssPath, 'utf8');
+  if (isCssPatched(content)) {
+    return false;
+  }
+  await fs.promises.writeFile(cssPath, applyCssPatchToContent(content), 'utf8');
+  return true;
+}
+
+export async function removeCssPatch(cssPath: string): Promise<boolean> {
+  const content = await fs.promises.readFile(cssPath, 'utf8');
+  if (!isCssPatched(content)) {
+    return false;
+  }
+  await fs.promises.writeFile(cssPath, removeCssPatchFromContent(content), 'utf8');
+  return true;
+}

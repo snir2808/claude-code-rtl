@@ -1,21 +1,33 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { applyPatch, removePatch } from './patcher';
+import { applyCssPatch, removeCssPatch } from './patcher';
+
+function getClaudeCodeCssPath(): string | undefined {
+  const ext = vscode.extensions.getExtension('anthropic.claude-code');
+  if (!ext) {
+    return undefined;
+  }
+  return path.join(ext.extensionPath, 'webview', 'index.css');
+}
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const htmlPath = path.join(
-    vscode.env.appRoot,
-    'out', 'vs', 'workbench', 'workbench.desktop.main.html'
-  );
+  const cssPath = getClaudeCodeCssPath();
+
+  if (!cssPath) {
+    await vscode.window.showWarningMessage(
+      'BiDi RTL: Claude Code extension not found. Please install it first.'
+    );
+    return;
+  }
 
   try {
-    const applied = await applyPatch(htmlPath);
+    const applied = await applyCssPatch(cssPath);
     if (applied) {
       const choice = await vscode.window.showInformationMessage(
-        'BiDi RTL: RTL patch applied to Claude Code panel. Restart VSCode to activate.',
-        'Restart Now'
+        'BiDi RTL: RTL patch applied to Claude Code. Reload the Claude Code panel to activate.',
+        'Reload Window'
       );
-      if (choice === 'Restart Now') {
+      if (choice === 'Reload Window') {
         await vscode.commands.executeCommand('workbench.action.reloadWindow')
           .then(undefined, () => { /* reload unavailable; user will need to restart manually */ });
       }
@@ -26,26 +38,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const msg = err instanceof Error ? err.message : String(err);
     const hint = isPermission ? ' Try running VSCode as administrator.' : '';
     await vscode.window.showErrorMessage(
-      `BiDi RTL: Could not patch workbench.html — ${msg}.${hint}`
+      `BiDi RTL: Could not patch Claude Code CSS — ${msg}.${hint}`
     );
   }
 
   const removeCmd = vscode.commands.registerCommand('bidi-rtl.removePatch', async () => {
+    const p = getClaudeCodeCssPath();
+    if (!p) {
+      await vscode.window.showWarningMessage('BiDi RTL: Claude Code extension not found.');
+      return;
+    }
     try {
-      const removed = await removePatch(htmlPath);
+      const removed = await removeCssPatch(p);
       if (!removed) {
         await vscode.window.showInformationMessage(
-          'BiDi RTL: No patch found — workbench.html was already clean.'
+          'BiDi RTL: No patch found — Claude Code CSS was already clean.'
         );
         return;
       }
       const choice = await vscode.window.showInformationMessage(
-        'BiDi RTL: RTL patch removed. Restart VSCode to apply.',
-        'Restart Now'
+        'BiDi RTL: RTL patch removed. Reload window to apply.',
+        'Reload Window'
       );
-      if (choice === 'Restart Now') {
+      if (choice === 'Reload Window') {
         await vscode.commands.executeCommand('workbench.action.reloadWindow')
-          .then(undefined, () => { /* reload unavailable; user will need to restart manually */ });
+          .then(undefined, () => { /* reload unavailable */ });
       }
     } catch (err: unknown) {
       const isPermission = err instanceof Error &&
