@@ -18,7 +18,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && mocha out/test/**/*.test.js"
+    "test": "npm run compile && mocha --ui tdd 'out/test/**/*.test.js'"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.0",
