@@ -42,7 +42,15 @@ suite('patcher — file I/O', () => {
 
   test('removePatch restores original content', async () => {
     await applyPatch(tmpFile);
-    await removePatch(tmpFile);
+    const removed = await removePatch(tmpFile);
+    assert.strictEqual(removed, true);
+    const content = await fs.promises.readFile(tmpFile, 'utf8');
+    assert.strictEqual(content, FAKE_HTML);
+  });
+
+  test('removePatch returns false when not patched', async () => {
+    const removed = await removePatch(tmpFile);
+    assert.strictEqual(removed, false);
     const content = await fs.promises.readFile(tmpFile, 'utf8');
     assert.strictEqual(content, FAKE_HTML);
   });

@@ -65,7 +65,11 @@ export async function applyPatch(htmlPath: string): Promise<boolean> {
   return true;
 }
 
-export async function removePatch(htmlPath: string): Promise<void> {
+export async function removePatch(htmlPath: string): Promise<boolean> {
   const content = await fs.promises.readFile(htmlPath, 'utf8');
+  if (!isPatched(content)) {
+    return false;
+  }
   await fs.promises.writeFile(htmlPath, removePatchFromContent(content), 'utf8');
+  return true;
 }
