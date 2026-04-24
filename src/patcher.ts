@@ -15,7 +15,7 @@ const PATCH_BLOCK = [
   "  s.textContent = '* { direction: rtl !important; text-align: right !important; }';",
   '  const observer = new MutationObserver(() => {',
   "    document.querySelectorAll('iframe').forEach(f => {",
-  "      try { f.contentDocument.head.appendChild(s.cloneNode(true)); } catch(e) {}",
+  "      try { f.contentDocument.head.appendChild(s.cloneNode(true)); } catch(e) { /* cross-origin iframe, skip */ }",
   '    });',
   '  });',
   '  observer.observe(document.body, { childList: true, subtree: true });',
@@ -32,29 +32,28 @@ export function applyPatchToContent(content: string): string {
   if (isPatched(content)) {
     return content;
   }
+  if (!content.includes('</head>')) {
+    throw new Error('applyPatchToContent: no </head> tag found in content');
+  }
   return content.replace('</head>', PATCH_BLOCK + '\n</head>');
 }
 
 export function removePatchFromContent(content: string): string {
   return content.replace(
-    /<!-- bidi-rtl-patch-start -->[\s\S]*?<!-- bidi-rtl-patch-end -->\n/,
+    /<!-- bidi-rtl-patch-start -->[\s\S]*?<!-- bidi-rtl-patch-end -->\n?/,
     ''
   );
 }
 
-export function getWorkbenchHtmlPath(): string {
-  const execPath = process.execPath;
-  let appDir: string;
-
-  if (os.platform() === 'darwin') {
-    // execPath: /Applications/VSCode.app/Contents/MacOS/Electron
-    appDir = path.join(path.dirname(execPath), '..', 'Resources', 'app');
-  } else {
-    // Windows/Linux: execPath sits next to resources/
-    appDir = path.join(path.dirname(execPath), 'resources', 'app');
-  }
-
+export function buildWorkbenchHtmlPath(execPath: string, platform: string): string {
+  const appDir = platform === 'darwin'
+    ? path.join(path.dirname(execPath), '..', 'Resources', 'app')
+    : path.join(path.dirname(execPath), 'resources', 'app');
   return path.join(appDir, 'out', 'vs', 'workbench', 'workbench.desktop.main.html');
+}
+
+export function getWorkbenchHtmlPath(): string {
+  return buildWorkbenchHtmlPath(process.execPath, os.platform());
 }
 
 export async function applyPatch(htmlPath: string): Promise<boolean> {
