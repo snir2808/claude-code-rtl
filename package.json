@@ -1,0 +1,30 @@
+{
+  "name": "vscode-bidi-rtl",
+  "displayName": "BiDi RTL for Claude Code",
+  "description": "Automatically applies RTL direction to Claude Code conversation panel",
+  "version": "0.0.1",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "bidi-rtl.removePatch",
+        "title": "BiDi RTL: Remove RTL Patch (run before uninstalling)"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && mocha out/test/**/*.test.js"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "mocha": "^10.0.0",
+    "typescript": "^5.0.0"
+  }
+}
