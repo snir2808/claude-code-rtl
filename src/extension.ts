@@ -1,8 +1,12 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
-import { applyPatch, removePatch, getWorkbenchHtmlPath } from './patcher';
+import { applyPatch, removePatch } from './patcher';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const htmlPath = getWorkbenchHtmlPath();
+  const htmlPath = path.join(
+    vscode.env.appRoot,
+    'out', 'vs', 'workbench', 'workbench.desktop.main.html'
+  );
 
   try {
     const applied = await applyPatch(htmlPath);
