@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 import { applyPatch, removePatch, isPatched } from '../patcher';
 
 const FAKE_HTML = `<!DOCTYPE html>
@@ -16,7 +17,7 @@ suite('patcher — file I/O', () => {
   let tmpFile: string;
 
   setup(async () => {
-    tmpFile = path.join(os.tmpdir(), `bidi-test-${Date.now()}.html`);
+    tmpFile = path.join(os.tmpdir(), `bidi-test-${randomUUID()}.html`);
     await fs.promises.writeFile(tmpFile, FAKE_HTML, 'utf8');
   });
 
@@ -29,6 +30,8 @@ suite('patcher — file I/O', () => {
     assert.strictEqual(result, true);
     const content = await fs.promises.readFile(tmpFile, 'utf8');
     assert.ok(isPatched(content));
+    assert.ok(content.includes('<!-- bidi-rtl-patch-start -->'));
+    assert.ok(content.indexOf('<!-- bidi-rtl-patch-start -->') < content.indexOf('</head>'));
   });
 
   test('applyPatch returns false when already patched', async () => {
