@@ -47,14 +47,17 @@ vscode-bidi-rtl/
 
 - Exports `activate(context)` and `deactivate()`
 - `activate`: calls `patcher.applyPatch()` on every startup; shows restart prompt if a new patch was applied
-- `deactivate`: calls `patcher.removePatch()` to clean up
+- `deactivate`: called on VSCode shutdown (NOT on uninstall) — does not clean up automatically
+- Registers a manual command `bidi-rtl.removePatch` for the user to run before uninstalling
 
 ### `patcher.ts`
 
 Responsible for all file I/O on `workbench.html`.
 
 **`applyPatch()`**
-1. Resolve `workbench.html` path using `process.execPath` (works cross-platform)
+1. Resolve `workbench.html` path from `process.execPath`:
+   - macOS: `execPath` → `.../MacOS/Electron` → go up 3 levels → append `Resources/app/out/vs/workbench/workbench.desktop.main.html`
+   - Windows: `execPath` → `Code.exe` → go up 1 level → append `resources\app\out\vs\workbench\workbench.desktop.main.html`
 2. Read file contents
 3. Check for `<!-- bidi-rtl-patch-start -->` marker — if found, skip (already patched)
 4. Inject the patch block before `</head>`
@@ -117,7 +120,7 @@ VSCode starts
 |---|---|
 | No write permission to workbench.html | Show error: "Run VSCode as admin or use sudo" |
 | VSCode update wipes workbench.html | Patch re-applied automatically on next startup |
-| Extension uninstalled | `deactivate()` removes patch, prompts restart |
+| Extension uninstalled | User runs `bidi-rtl.removePatch` command manually before uninstalling |
 | Claude Code iframe is sandboxed (CSS blocked) | Outer panel still gets RTL; user informed of limitation |
 
 ---
