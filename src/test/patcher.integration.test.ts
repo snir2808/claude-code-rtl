@@ -3,55 +3,49 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { applyPatch, removePatch, isPatched } from '../patcher';
+import { applyCssPatch, removeCssPatch, isCssPatched } from '../patcher';
 
-const FAKE_HTML = `<!DOCTYPE html>
-<html>
-<head>
-<title>VSCode</title>
-</head>
-<body></body>
-</html>`;
+const FAKE_CSS = `.foo{color:red}\n.bar{display:flex}`;
 
 suite('patcher — file I/O', () => {
   let tmpFile: string;
 
   setup(async () => {
-    tmpFile = path.join(os.tmpdir(), `bidi-test-${randomUUID()}.html`);
-    await fs.promises.writeFile(tmpFile, FAKE_HTML, 'utf8');
+    tmpFile = path.join(os.tmpdir(), `bidi-test-${randomUUID()}.css`);
+    await fs.promises.writeFile(tmpFile, FAKE_CSS, 'utf8');
   });
 
   teardown(async () => {
     await fs.promises.unlink(tmpFile).catch(() => {});
   });
 
-  test('applyPatch writes patched content and returns true', async () => {
-    const result = await applyPatch(tmpFile);
+  test('applyCssPatch writes patched content and returns true', async () => {
+    const result = await applyCssPatch(tmpFile);
     assert.strictEqual(result, true);
     const content = await fs.promises.readFile(tmpFile, 'utf8');
-    assert.ok(isPatched(content));
-    assert.ok(content.includes('<!-- bidi-rtl-patch-start -->'));
-    assert.ok(content.indexOf('<!-- bidi-rtl-patch-start -->') < content.indexOf('</head>'));
+    assert.ok(isCssPatched(content));
+    assert.ok(content.includes('/* bidi-rtl-patch-start */'));
+    assert.ok(content.includes('/* bidi-rtl-patch-end */'));
   });
 
-  test('applyPatch returns false when already patched', async () => {
-    await applyPatch(tmpFile);
-    const result = await applyPatch(tmpFile);
+  test('applyCssPatch returns false when already patched', async () => {
+    await applyCssPatch(tmpFile);
+    const result = await applyCssPatch(tmpFile);
     assert.strictEqual(result, false);
   });
 
-  test('removePatch restores original content', async () => {
-    await applyPatch(tmpFile);
-    const removed = await removePatch(tmpFile);
+  test('removeCssPatch restores original content', async () => {
+    await applyCssPatch(tmpFile);
+    const removed = await removeCssPatch(tmpFile);
     assert.strictEqual(removed, true);
     const content = await fs.promises.readFile(tmpFile, 'utf8');
-    assert.strictEqual(content, FAKE_HTML);
+    assert.strictEqual(content, FAKE_CSS);
   });
 
-  test('removePatch returns false when not patched', async () => {
-    const removed = await removePatch(tmpFile);
+  test('removeCssPatch returns false when not patched', async () => {
+    const removed = await removeCssPatch(tmpFile);
     assert.strictEqual(removed, false);
     const content = await fs.promises.readFile(tmpFile, 'utf8');
-    assert.strictEqual(content, FAKE_HTML);
+    assert.strictEqual(content, FAKE_CSS);
   });
 });

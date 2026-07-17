@@ -3,5 +3,13 @@ src/**
 out/test/**
 tsconfig.json
 .gitignore
+.git/**
 docs/**
 node_modules/**
+.claude/**
+.omc/**
+.superpowers/**
+**/*.map
+**/*.vsix
+**/*.vsix.zip
+package-lock.json

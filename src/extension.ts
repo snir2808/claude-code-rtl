@@ -2,27 +2,30 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { applyCssPatch, removeCssPatch } from './patcher';
 
+const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
+
 function getClaudeCodeCssPath(): string | undefined {
-  const ext = vscode.extensions.getExtension('anthropic.claude-code');
+  const ext = vscode.extensions.getExtension(CLAUDE_EXTENSION_ID);
   if (!ext) {
     return undefined;
   }
   return path.join(ext.extensionPath, 'webview', 'index.css');
 }
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+async function tryApplyPatch(silent: boolean = false): Promise<void> {
   const cssPath = getClaudeCodeCssPath();
-
   if (!cssPath) {
-    await vscode.window.showWarningMessage(
-      'BiDi RTL: Claude Code extension not found. Please install it first.'
-    );
+    if (!silent) {
+      await vscode.window.showWarningMessage(
+        'BiDi RTL: Claude Code extension not found. Please install it first.'
+      );
+    }
     return;
   }
 
   try {
     const applied = await applyCssPatch(cssPath);
-    if (applied) {
+    if (applied && !silent) {
       const choice = await vscode.window.showInformationMessage(
         'BiDi RTL: RTL patch applied to Claude Code. Reload the Claude Code panel to activate.',
         'Reload Window'
@@ -41,6 +44,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       `BiDi RTL: Could not patch Claude Code CSS — ${msg}.${hint}`
     );
   }
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  await tryApplyPatch();
+
+  const applyCmd = vscode.commands.registerCommand('bidi-rtl.applyPatch', async () => {
+    await tryApplyPatch();
+  });
 
   const removeCmd = vscode.commands.registerCommand('bidi-rtl.removePatch', async () => {
     const p = getClaudeCodeCssPath();
@@ -75,7 +86,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
-  context.subscriptions.push(removeCmd);
+  context.subscriptions.push(applyCmd, removeCmd);
 }
 
 export function deactivate(): void {}
