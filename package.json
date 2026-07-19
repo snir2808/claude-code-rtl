@@ -3,7 +3,11 @@
   "name": "vscode-bidi-rtl",
   "displayName": "BiDi RTL for Claude Code",
   "description": "Automatically applies RTL direction to Claude Code conversation panel",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/snir2808/claude-code-rtl.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
