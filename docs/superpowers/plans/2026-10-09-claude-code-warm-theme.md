@@ -2749,7 +2749,8 @@ and how much of it you've used. Hover for the weekly window; click to refresh.
 It asks Anthropic's usage endpoint (the one Claude Code itself uses) with the login Claude Code
 already stored on your machine: the macOS Keychain entry `Claude Code-credentials`, or
 `~/.claude/.credentials.json` elsewhere. The token is read fresh for each refresh, sent only to
-`api.anthropic.com`, and never logged or stored. macOS may ask once to allow Keychain access.
+`api.anthropic.com`, and never logged or stored. macOS may ask once to allow Keychain access; if
+you decline, the clock says so and stops asking until you click it.
 
 No telemetry, no network calls besides that one, and no settings to configure.
 
@@ -2822,7 +2823,7 @@ MIT.
 npm test && npx vsce package && npx vsce ls | grep -E '^(css|fonts|out)/' | sort
 ```
 
-Expected: `58 passing`; `vscode-bidi-rtl-0.1.0.vsix` created; the listing includes `css/rtl.css`, `css/theme.css`, `fonts/OFL.txt`, `fonts/rubik-hebrew.woff2`, `fonts/rubik-latin.woff2` and the `out/*.js` modules (`cleanup`, `extension`, `features`, `health`, `patcher`, `status`, `sync`, `uninstall`, `usage`), and nothing under `out/test/` or `scripts/`.
+Expected: `72 passing`; `vscode-bidi-rtl-0.1.0.vsix` created; the listing includes `css/rtl.css`, `css/theme.css`, `fonts/OFL.txt`, `fonts/rubik-hebrew.woff2`, `fonts/rubik-latin.woff2` and the `out/*.js` modules (`cleanup`, `extension`, `features`, `health`, `patcher`, `status`, `sync`, `uninstall`, `usage`), and nothing under `out/test/` or `scripts/`.
 
 - [ ] **Step 3: Install into VS Code Insiders**
 
