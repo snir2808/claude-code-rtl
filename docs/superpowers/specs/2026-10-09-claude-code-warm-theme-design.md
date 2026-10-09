@@ -117,7 +117,7 @@ A unit test enforces the first two rules.
 
 ### Health check
 
-Runs after each sync against the active install:
+Runs after each sync against the active install, while the theme is enabled (its checks and warning are about the theme):
 
 - **Integrity:** `index.css` contains Claude Code's token block (`html{--app-`). A damaged file is still synced, and the warning names it.
 - **Compatibility:** `index.css` still contains the class prefixes the theme targets — `messagesContainer_`, `turn_`, `timelineMessage_`, `userMessage_`, `toolUse_`, `toolNameText_`, `inputContainer_`, `inputContainerBackground_`, `inputFooter_`, `footerButton_`, `spacer_`, `sendButton_`, `modelPill_`, `menuButton_`, `codeBlockWrapper_` — and `index.js` still contains the hooks used in selectors: `assistant-message`, `Claude, `, `Message input`.

@@ -1962,7 +1962,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       reportError('update Claude Code CSS', err, silent);
       return 'error';
     }
-    if (enabled.size > 0) {
+    if (enabled.has('theme')) {
       await warnIfUnhealthy(ext).catch((err: unknown) => {
         console.error(formatError('check Claude Code', err));
       });
@@ -2563,7 +2563,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       reportError('update Claude Code CSS', err, silent);
       return 'error';
     }
-    if (enabled.size > 0) {
+    if (enabled.has('theme')) {
       await warnIfUnhealthy(ext).catch((err: unknown) => {
         console.error(formatError('check Claude Code', err));
       });
