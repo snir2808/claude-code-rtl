@@ -1190,7 +1190,7 @@ body.vscode-dark [class*="inputFooter_"]>[class*="spacer_"]{
 order:1;
 }
 body.vscode-dark [class*="inputFooter_"]>:has(>[class*="usageButtonV2_"]),
-body.vscode-dark [class*="inputFooter_"]>[data-cache-window],
+body.vscode-dark [class*="inputFooter_"]>:has(>[data-cache-window]),
 body.vscode-dark [class*="inputFooter_"]>[class*="pill_"],
 body.vscode-dark [class*="inputFooter_"]>[class*="modelPill_"]{
 order:2;
@@ -1324,6 +1324,7 @@ html,body{height:100%;margin:0}
     <div class="addButtonContainer_Lu5mZA"><button class="addButton_Lu5mZA" type="button" title="Add">+</button></div>
     <button class="menuButton_gGYT1w" type="button" title="Show command menu (/)">/</button>
     <div class="host_v41KHw"><button class="usage_P2QnnQ usageButtonV2_gGYT1w" type="button" aria-label="62% context used — click to compact">◔</button></div>
+    <div class="host_v41KHw host_a_iRsA"><span class="footerButton_gGYT1w footerButtonPrimary_gGYT1w indicator_a_iRsA" data-cache-window>4m</span></div>
     <button class="modelPill_gGYT1w" type="button" role="combobox">Opus</button>
     <div class="divider_gGYT1w"></div>
     <span class="selectionChip_gGYT1w"><span class="footerButton_gGYT1w footerButtonStatic_gGYT1w">config.ts</span></span>
@@ -1433,7 +1434,7 @@ function check(mode, r) {
     expect(r.groupBg === 'rgb(33, 31, 28)', `tool group background: ${r.groupBg}`);
     expect(r.turnWidth <= 680, `turn width: ${r.turnWidth}`);
     expect(r.sendSize === 34, `send button: ${r.sendSize}px`);
-    expect(r.footerOrder === '0,0,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
+    expect(r.footerOrder === '0,0,2,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
   } else {
     expect(!r.textFont.includes('BiDi Rubik'), `light theme uses the theme font: ${r.textFont}`);
     expect(r.userBg !== 'rgb(38, 35, 32)', 'light theme uses the theme user-message color');
@@ -1551,7 +1552,7 @@ Open `fixture-out/fixture-dark.png` and `docs/superpowers/specs/assets/2026-10-0
 - Read, Edit, the failed Bash and Thinking form one rounded box with status dots; the connecting line starts at the first dot and ends at the last.
 - Claude's text has no dot and no left gutter; the heading, list markers and the rounded code block match the mockup.
 - The single Bash row after the text is its own small box without a line.
-- The input box has 16px corners; footer: `+`, `/`, divider, `config.ts` on the left; context, `Opus`, `Edit automatically` and the 34px round send button on the right.
+- The input box has 16px corners; footer: `+`, `/`, divider, `config.ts` on the left; context, the `4m` cache timer, `Opus`, `Edit automatically` and the 34px round send button on the right.
 
 Open `fixture-out/fixture-light.png` and confirm none of the warm palette or Rubik appears.
 

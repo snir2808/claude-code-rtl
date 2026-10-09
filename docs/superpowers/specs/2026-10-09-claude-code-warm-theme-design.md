@@ -209,7 +209,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
   | add, command menu, divider, selection chip | (default) | 0 |
   | spacer | `> [class*="spacer_"]` | 1 |
   | context pie | `> :has(> [class*="usageButtonV2_"])` | 2 |
-  | cache timer | `> [data-cache-window]` | 2 |
+  | cache timer (a span inside a wrapper) | `> :has(> [data-cache-window])` | 2 |
   | pills (remote control, agents, model) | `> [class*="pill_"]`, `> [class*="modelPill_"]` | 2 |
   | mode selector | `> :has(> button[class*="footerButtonPrimary_"])` | 3 |
   | send | `> button[type="submit"][class*="sendButton_"]` | 4 |
