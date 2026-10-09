@@ -1,0 +1,238 @@
+/* Warm reading theme for Claude Code, dark themes only.
+   Rules (enforced by src/test/theme-css.test.ts): every selector starts with
+   body.vscode-dark, only @font-face at top level, and no direction, text-align
+   or unicode-bidi (those belong to css/rtl.css). */
+
+@font-face{
+font-family:"BiDi Rubik";
+src:url("bidi-theme-rubik-hebrew.woff2") format("woff2");
+font-style:normal;
+font-weight:300 900;
+font-display:swap;
+unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;
+}
+@font-face{
+font-family:"BiDi Rubik";
+src:url("bidi-theme-rubik-latin.woff2") format("woff2");
+font-style:normal;
+font-weight:300 900;
+font-display:swap;
+unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* Palette. Claude Code defines its tokens on html; redefining them on body
+   makes every descendant use these values. Tokens that html derives from
+   other tokens (accent, pills, inline code) are set here directly, because a
+   derived value is computed on html and would not see these overrides. Both
+   backgrounds get the panel color: the sidebar paints with primary, the
+   editor tab with secondary. body also consumes the two chat font variables,
+   so the whole panel switches to Rubik 15px. */
+body.vscode-dark{
+--app-primary-background:#1b1a18;
+--app-secondary-background:#1b1a18;
+--app-header-background:#1b1a18;
+--app-primary-foreground:#ebe5da;
+--app-secondary-foreground:#a39d92;
+--app-disabled-foreground:#7d766a;
+--app-primary-border-color:#3b362f;
+--app-menu-border:#3b362f;
+--app-widget-border:#3b362f;
+--app-input-background:#242120;
+--app-input-secondary-background:#242120;
+--app-input-border:#736a5d;
+--app-input-foreground:#f5f0e8;
+--app-input-placeholder-foreground:#9a9387;
+--app-menu-background:#242120;
+--app-modal-background:#242120;
+--app-menu-foreground:#ebe5da;
+--app-menu-selection-background:#3a332b;
+--app-menu-selection-foreground:#f5f0e8;
+--app-list-active-background:#3a332b;
+--app-list-active-foreground:#f5f0e8;
+--app-list-hover-background:#2a2622;
+--app-ghost-button-hover-background:#2a2622;
+--app-accent-color:#d97757;
+--app-button-background:#d97757;
+--app-input-active-border:#d97757;
+--app-badge-background:#d97757;
+--app-button-foreground:#1b1a18;
+--app-badge-foreground:#1b1a18;
+--app-button-hover-background:#e3876a;
+--app-link-foreground:#e8a07f;
+--app-inline-code-background:#2b2824;
+--app-inline-code-foreground:#f2b896;
+--app-code-background:#121110;
+--app-tool-background:#121110;
+--app-pill-background:#2f2b26;
+--app-pill-foreground:#ddd4c6;
+--app-pill-hover-background:#38332c;
+--app-success-foreground:#a8c792;
+--vscode-chat-font-family:"BiDi Rubik",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+--vscode-chat-font-size:15px;
+}
+
+/* Reading column: the conversation shares the composer's 680px column. */
+body.vscode-dark [class*="messagesContainer_"]>*{
+max-width:680px;
+width:100%;
+margin-inline:auto;
+box-sizing:border-box;
+}
+
+/* Your messages: a soft block with an accent bar where the text starts. */
+body.vscode-dark [class*="userMessage_"]{
+background:#262320;
+color:#f5f0e8;
+border:0;
+border-inline-start:3px solid #d97757;
+border-radius:14px;
+padding:12px 16px;
+}
+
+/* Claude's text rows: no timeline dot, no line, no 30px gutter. */
+body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"]){
+padding-left:0;
+}
+body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"])::before,
+body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"])::after{
+display:none;
+}
+
+/* Claude's markdown. */
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"]{
+line-height:1.75;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] p{
+margin:0 0 12px;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] p:last-child{
+margin-bottom:0;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] h1,
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] h2,
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] h3{
+font-weight:600;
+color:#f5f0e8;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] h1{
+font-size:20px;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] h2{
+font-size:18px;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] h3{
+font-size:16px;
+}
+body.vscode-dark [data-testid="assistant-message"]>span[class*="root_"] li::marker{
+color:#d97757;
+}
+body.vscode-dark [class*="codeBlockWrapper_"],
+body.vscode-dark [class*="codeBlockWrapper_"]>pre{
+border-radius:12px;
+}
+body.vscode-dark [class*="codeBlockWrapper_"]>pre{
+padding:12px 16px;
+}
+
+/* Tool and thinking rows. Nothing wraps consecutive rows, so each run is
+   drawn as one box: shared fill and side borders on every row, the top edge
+   on the first row of a run and the bottom edge on the last. */
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "]{
+background:#211f1c;
+border-left:1px solid #2b2824;
+border-right:1px solid #2b2824;
+padding-right:12px;
+font-size:12.5px;
+color:#968f83;
+}
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "] [class*="toolNameText_"]{
+color:#cfc6b7;
+font-weight:600;
+}
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "]:not([data-testid="assistant-message"][aria-label^="Claude, "]+[data-testid="assistant-message"][aria-label^="Claude, "]){
+border-top:1px solid #2b2824;
+border-top-left-radius:12px;
+border-top-right-radius:12px;
+margin-top:4px;
+}
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "]:not(:has(+[data-testid="assistant-message"][aria-label^="Claude, "])){
+border-bottom:1px solid #2b2824;
+border-bottom-left-radius:12px;
+border-bottom-right-radius:12px;
+margin-bottom:12px;
+}
+
+/* The timeline line runs only between the dots of one group. */
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "]:not([data-testid="assistant-message"][aria-label^="Claude, "]+[data-testid="assistant-message"][aria-label^="Claude, "])::after{
+top:calc(var(--message-padding-top,8px) + 10px);
+}
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "]:not(:has(+[data-testid="assistant-message"][aria-label^="Claude, "]))::after{
+bottom:auto;
+height:calc(var(--message-padding-top,8px) + 10px);
+}
+body.vscode-dark [data-testid="assistant-message"][aria-label^="Claude, "]:not([data-testid="assistant-message"][aria-label^="Claude, "]+[data-testid="assistant-message"][aria-label^="Claude, "]):not(:has(+[data-testid="assistant-message"][aria-label^="Claude, "]))::after{
+display:none;
+}
+
+/* Composer: a rounder box, roomier buttons, status on the right. Its outer
+   size and position are measured by Claude Code, so they stay untouched.
+   The box and its background layer both read --corner-radius-large. */
+body.vscode-dark fieldset[class*="inputContainer_"]{
+--corner-radius-large:16px;
+}
+body.vscode-dark [class*="inputFooter_"]{
+gap:6px;
+}
+body.vscode-dark [class*="inputFooter_"] button[title="Add"],
+body.vscode-dark [class*="inputFooter_"] [class*="menuButton_"]{
+width:30px;
+height:28px;
+padding:0;
+border-radius:9px;
+background:#2f2b26;
+color:#ddd4c6;
+}
+body.vscode-dark [class*="inputFooter_"] [class*="footerButton_"],
+body.vscode-dark [class*="inputFooter_"] [class*="modelPill_"]{
+min-height:28px;
+padding:0 10px;
+border-radius:9px;
+font-size:12.5px;
+background:#2f2b26;
+color:#ddd4c6;
+}
+body.vscode-dark [class*="inputFooter_"]>:has(>button[class*="footerButtonPrimary_"])>button,
+body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"]{
+background:transparent;
+border:1px solid #453e35;
+}
+body.vscode-dark [class*="inputFooter_"] button[title="Add"]:hover,
+body.vscode-dark [class*="inputFooter_"] [class*="menuButton_"]:hover,
+body.vscode-dark [class*="inputFooter_"] [class*="footerButton_"]:hover,
+body.vscode-dark [class*="inputFooter_"] [class*="modelPill_"]:hover{
+background:#38332c;
+}
+body.vscode-dark [class*="inputFooter_"]>:has(>button[class*="footerButtonPrimary_"])>button:hover,
+body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"]:hover{
+background:#2a2622;
+}
+body.vscode-dark [class*="inputFooter_"]>[class*="spacer_"]{
+order:1;
+}
+body.vscode-dark [class*="inputFooter_"]>:has(>[class*="usageButtonV2_"]),
+body.vscode-dark [class*="inputFooter_"]>[data-cache-window],
+body.vscode-dark [class*="inputFooter_"]>[class*="pill_"],
+body.vscode-dark [class*="inputFooter_"]>[class*="modelPill_"]{
+order:2;
+}
+body.vscode-dark [class*="inputFooter_"]>:has(>button[class*="footerButtonPrimary_"]){
+order:3;
+}
+body.vscode-dark [class*="inputFooter_"]>button[type="submit"][class*="sendButton_"]{
+order:4;
+}
+body.vscode-dark [class*="inputFooter_"] button[type="submit"][class*="sendButton_"]{
+width:34px;
+height:34px;
+border-radius:50%;
+}
