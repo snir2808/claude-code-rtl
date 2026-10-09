@@ -3,9 +3,12 @@ import { FEATURES, Feature, FeatureId, RTL } from './features';
 import { checkInstallHealth, formatHealthWarning, isHealthy } from './health';
 import { getStatusBarState } from './status';
 import { syncInstall } from './sync';
+import { UsageStatus, fetchUsage, formatUsageError, formatUsageStatus, readAccessToken } from './usage';
 
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
 const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
+const USAGE_FLAG = 'bidiUsage.enabled';
+const USAGE_REFRESH_MS = 5 * 60 * 1000;
 
 function formatError(action: string, err: unknown): string {
   const isPermission = err instanceof Error &&
@@ -71,6 +74,46 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
   refreshStatusBar();
 
+  // Session clock: when the 5-hour usage window resets. Errors show in the
+  // item's tooltip, never as a toast.
+  const usageItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100 - FEATURES.length
+  );
+  usageItem.command = 'bidi-usage.refresh';
+  let lastUsageFetch = 0;
+  let resetTimer: NodeJS.Timeout | undefined;
+  const isUsageEnabled = (): boolean => context.globalState.get<boolean>(USAGE_FLAG, true);
+
+  const refreshUsage = async (): Promise<void> => {
+    clearTimeout(resetTimer);
+    if (!isUsageEnabled()) {
+      usageItem.hide();
+      return;
+    }
+    lastUsageFetch = Date.now();
+    let status: UsageStatus;
+    try {
+      const token = await readAccessToken();
+      if (!token) {
+        throw new Error('not signed in to Claude Code');
+      }
+      const usage = await fetchUsage(token);
+      status = formatUsageStatus(usage, new Date());
+      // Refresh right after the window resets, if that happens before the next tick.
+      const untilReset = (usage.session?.resetsAt?.getTime() ?? 0) - Date.now();
+      if (untilReset > 0 && untilReset < USAGE_REFRESH_MS) {
+        resetTimer = setTimeout(() => void refreshUsage(), untilReset + 5000);
+      }
+    } catch (err: unknown) {
+      status = formatUsageError(err instanceof Error ? err.message : String(err));
+    }
+    usageItem.text = status.text;
+    usageItem.tooltip = status.tooltip;
+    usageItem.show();
+  };
+  const usageTimer = setInterval(() => void refreshUsage(), USAGE_REFRESH_MS);
+
   // At most one warning per Claude Code version; the toast is never awaited.
   const warnIfUnhealthy = async (ext: vscode.Extension<unknown>): Promise<void> => {
     const version = String(ext.packageJSON?.version ?? 'unknown');
@@ -129,6 +172,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const windowListener = vscode.window.onDidChangeWindowState((e) => {
     if (e.focused) {
       refreshStatusBar();
+      if (Date.now() - lastUsageFetch > 60_000) {
+        void refreshUsage();
+      }
     }
   });
 
@@ -165,14 +211,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  const usageRefreshCmd = vscode.commands.registerCommand('bidi-usage.refresh', () => refreshUsage());
+
+  const usageToggleCmd = vscode.commands.registerCommand('bidi-usage.toggle', async () => {
+    await context.globalState.update(USAGE_FLAG, !isUsageEnabled());
+    await refreshUsage();
+  });
+
   context.subscriptions.push(
     ...statusItems.map(({ item }) => item),
+    usageItem,
     windowListener,
     changeListener,
     ...toggleCommands,
     applyCmd,
-    removeCmd
+    removeCmd,
+    usageRefreshCmd,
+    usageToggleCmd,
+    { dispose: () => { clearInterval(usageTimer); clearTimeout(resetTimer); } }
   );
+
+  void refreshUsage();
 
   // The initial sync runs after everything is registered and never blocks
   // activation on a toast.

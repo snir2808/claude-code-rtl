@@ -35,6 +35,14 @@
       {
         "command": "bidi-theme.toggle",
         "title": "BiDi Theme: Toggle Warm Theme On/Off"
+      },
+      {
+        "command": "bidi-usage.toggle",
+        "title": "BiDi Usage: Toggle Session Clock On/Off"
+      },
+      {
+        "command": "bidi-usage.refresh",
+        "title": "BiDi Usage: Refresh Session Clock"
       }
     ]
   },
