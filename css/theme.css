@@ -220,7 +220,7 @@ body.vscode-dark [class*="inputFooter_"]>[class*="spacer_"]{
 order:1;
 }
 body.vscode-dark [class*="inputFooter_"]>:has(>[class*="usageButtonV2_"]),
-body.vscode-dark [class*="inputFooter_"]>[data-cache-window],
+body.vscode-dark [class*="inputFooter_"]>:has(>[data-cache-window]),
 body.vscode-dark [class*="inputFooter_"]>[class*="pill_"],
 body.vscode-dark [class*="inputFooter_"]>[class*="modelPill_"]{
 order:2;
