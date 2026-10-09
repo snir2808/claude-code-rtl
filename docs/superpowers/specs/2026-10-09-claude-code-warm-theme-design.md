@@ -221,6 +221,20 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 
 ---
 
+## Session clock (added 2026-10-09)
+
+A third status-bar item shows when the current 5-hour usage window resets, requested during execution. The user chose the authoritative server data over a local estimate.
+
+- **Display:** `$(watch) 17:42 · 42%` — the reset time as a 24-hour local clock, and the share of the window used (rounded). Tooltip: `Claude session (5h): 42% used, resets at 17:42.`, a line for the weekly window when present (`Weekly (7 days): 31% used, resets Thu 09:00.`), and `Click to refresh.` Clicking refreshes.
+- **No active window** (`five_hour` missing, `resets_at` null, or the reset time already passed): `$(watch) —`, tooltip `Claude session (5h): no active window — it starts with your next message.`
+- **Data:** `GET https://api.anthropic.com/api/oauth/usage` with `Authorization: Bearer <token>` and `anthropic-beta: oauth-2025-04-20` — the endpoint and header the Claude Code CLI itself uses. The body has `five_hour` and `seven_day` windows (`utilization` 0–100, `resets_at` ISO time or null), at the top level or under `rate_limits`.
+- **Token:** Claude Code's OAuth access token (`claudeAiOauth.accessToken`), read from the macOS Keychain generic password `Claude Code-credentials` via `/usr/bin/security find-generic-password -s "Claude Code-credentials" -w`, or from `~/.claude/.credentials.json` elsewhere. It is read fresh for each refresh, held only for that request, never logged or stored, and sent only to `api.anthropic.com`. macOS may ask once to allow Keychain access.
+- **Refresh:** on activation, every 5 minutes, when the window regains focus and the last fetch is older than 60 seconds, on click, and 5 seconds after the session window resets.
+- **Errors** (no credentials, expired token, network, unexpected body): `$(watch) —`, tooltip `Claude session (5h): unavailable — <reason>. Click to retry.` Never a toast.
+- **Toggle:** `bidi-usage.toggle` with flag `bidiUsage.enabled` (default on); `bidi-usage.refresh` backs the click.
+- **Out of scope:** refreshing the OAuth token, weekly limits in the status text (tooltip only), notifications.
+- **Risk:** the endpoint is undocumented and may change; the item then shows `—` with the reason.
+
 ## Testing
 
 ### Unit (mocha, existing setup)

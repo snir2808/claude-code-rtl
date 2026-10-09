@@ -16,8 +16,9 @@
 - Markers: RTL `/* bidi-rtl-patch-start */` … `/* bidi-rtl-patch-end */` (unchanged); theme `/* bidi-theme-patch-start */` … `/* bidi-theme-patch-end */`.
 - Canonical block order: `theme`, then `rtl`.
 - Theme assets are written to `<claude-code>/webview/bidi-theme-rubik-hebrew.woff2` and `<claude-code>/webview/bidi-theme-rubik-latin.woff2`.
-- `globalState` keys: `bidiRtl.enabled` (default on), `bidiTheme.enabled` (default on), `bidiTheme.lastWarnedVersion`.
-- Commands: `bidi-rtl.toggle`, `bidi-rtl.applyPatch`, `bidi-rtl.removePatch` (unchanged), `bidi-theme.toggle`.
+- `globalState` keys: `bidiRtl.enabled` (default on), `bidiTheme.enabled` (default on), `bidiTheme.lastWarnedVersion`, `bidiUsage.enabled` (default on).
+- Commands: `bidi-rtl.toggle`, `bidi-rtl.applyPatch`, `bidi-rtl.removePatch` (unchanged), `bidi-theme.toggle`, `bidi-usage.toggle`, `bidi-usage.refresh`.
+- Session clock: Claude Code's OAuth token is read fresh for each refresh, held only for that request, never logged or stored, and sent only to `https://api.anthropic.com/api/oauth/usage`.
 - `css/theme.css`: every style rule's selectors start with `body.vscode-dark`; the only top-level at-rule is `@font-face`; no `direction`, `text-align` or `unicode-bidi` declarations.
 - Never override inline styles, the composer dock's position or outer spacing, or anything keyed on `data-fit-stage`.
 - Extension `name` stays `vscode-bidi-rtl`; `displayName` becomes "BiDi RTL & Theme for Claude Code"; version 0.1.0.
@@ -36,8 +37,9 @@
 | `css/theme.css`, `fonts/*` | 4 (new) | Theme block body, Rubik woff2 subsets, OFL license |
 | `scripts/fixture/panel.html`, `scripts/render-fixture.js` | 5 (new) | Visual fixture rendered against Claude Code's real CSS |
 | `src/cleanup.ts`, `src/uninstall.ts` | 6 | Strip both blocks and delete fonts from every install |
-| `src/status.ts`, `src/extension.ts`, `package.json` | 7 | Status bar per feature, wiring, manifest |
-| `README.md` | 8 | Theme docs and font credit |
+| `src/status.ts`, `src/extension.ts`, `package.json` | 7, 8 | Status bar per feature, wiring, manifest |
+| `src/usage.ts` | 8 (new) | Session clock: usage endpoint, OAuth token, status text |
+| `README.md` | 9 | Theme and session-clock docs, font credit |
 
 ---
 
@@ -2100,7 +2102,604 @@ EOF
 
 ---
 
-### Task 8: README, package, install and the manual check
+### Task 8: Session clock in the status bar
+
+Added during execution at the user's request (spec section "Session clock"). A third status-bar item shows when the current 5-hour usage window resets, from Anthropic's usage endpoint, authenticated with Claude Code's own OAuth token.
+
+**Files:**
+- Create: `src/usage.ts`
+- Test: `src/test/usage.test.ts`
+- Modify: `src/extension.ts` (full file below), `package.json` (two commands)
+
+**Interfaces:**
+- Consumes: the Task 7 `src/extension.ts` (replaced in full in Step 5).
+- Produces (`src/usage.ts`): `USAGE_URL`, `interface UsageWindow { utilization: number; resetsAt: Date | null }`, `interface Usage { session: UsageWindow | null; weekly: UsageWindow | null }`, `interface UsageStatus { text: string; tooltip: string }`, `parseUsage(body: unknown): Usage | null`, `formatClock(date: Date): string`, `formatUsageStatus(usage: Usage, now: Date): UsageStatus`, `formatUsageError(reason: string): UsageStatus`, `parseAccessToken(raw: string): string | null`, `readAccessToken(): Promise<string | null>`, `type FetchLike`, `fetchUsage(token: string, fetchFn?: FetchLike): Promise<Usage>`.
+- Security contract: the token is read fresh for each refresh, held only for that request, never logged or stored, and sent only to `USAGE_URL`.
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `src/test/usage.test.ts`:
+
+```ts
+import * as assert from 'assert';
+import {
+  FetchLike,
+  USAGE_URL,
+  fetchUsage,
+  formatClock,
+  formatUsageError,
+  formatUsageStatus,
+  parseAccessToken,
+  parseUsage,
+} from '../usage';
+
+const BODY = {
+  five_hour: { utilization: 42.4, resets_at: '2026-10-09T14:42:00.000Z' },
+  seven_day: { utilization: 31, resets_at: '2026-10-15T06:00:00.000Z' },
+  seven_day_opus: null,
+};
+
+suite('usage — parse', () => {
+  test('reads the session and weekly windows', () => {
+    const usage = parseUsage(BODY);
+    assert.ok(usage && usage.session && usage.weekly);
+    assert.strictEqual(usage.session.utilization, 42.4);
+    assert.strictEqual(usage.session.resetsAt?.toISOString(), '2026-10-09T14:42:00.000Z');
+    assert.strictEqual(usage.weekly.utilization, 31);
+  });
+
+  test('accepts windows nested under rate_limits', () => {
+    assert.deepStrictEqual(parseUsage({ rate_limits: BODY }), parseUsage(BODY));
+  });
+
+  test('a null reset time means no active window; malformed windows are dropped', () => {
+    const usage = parseUsage({ five_hour: { utilization: 0, resets_at: null }, seven_day: { utilization: 'x' } });
+    assert.deepStrictEqual(usage, { session: { utilization: 0, resetsAt: null }, weekly: null });
+  });
+
+  test('unrelated bodies are rejected', () => {
+    assert.strictEqual(parseUsage({ error: 'nope' }), null);
+    assert.strictEqual(parseUsage('five_hour'), null);
+    assert.strictEqual(parseUsage(null), null);
+  });
+});
+
+suite('usage — format', () => {
+  const at = (h: number, m: number, day = 9): Date => new Date(2026, 9, day, h, m);
+
+  test('formatClock is a zero-padded 24-hour clock', () => {
+    assert.strictEqual(formatClock(at(7, 5)), '07:05');
+    assert.strictEqual(formatClock(at(17, 42)), '17:42');
+  });
+
+  test('an active window shows its reset time and usage', () => {
+    const status = formatUsageStatus(
+      { session: { utilization: 42.4, resetsAt: at(17, 42) }, weekly: { utilization: 31, resetsAt: at(9, 0, 15) } },
+      at(15, 0)
+    );
+    assert.strictEqual(status.text, '$(watch) 17:42 · 42%');
+    assert.ok(status.tooltip.includes('Claude session (5h): 42% used, resets at 17:42.'), status.tooltip);
+    assert.ok(status.tooltip.includes('Weekly (7 days): 31% used, resets Thu 09:00.'), status.tooltip);
+    assert.ok(status.tooltip.endsWith('Click to refresh.'), status.tooltip);
+  });
+
+  test('no active window shows a dash', () => {
+    const status = formatUsageStatus({ session: { utilization: 0, resetsAt: null }, weekly: null }, at(15, 0));
+    assert.strictEqual(status.text, '$(watch) —');
+    assert.ok(
+      status.tooltip.startsWith('Claude session (5h): no active window — it starts with your next message.'),
+      status.tooltip
+    );
+  });
+
+  test('a reset time in the past counts as no active window', () => {
+    const status = formatUsageStatus({ session: { utilization: 97, resetsAt: at(14, 0) }, weekly: null }, at(15, 0));
+    assert.strictEqual(status.text, '$(watch) —');
+  });
+
+  test('errors show a dash and the reason', () => {
+    const status = formatUsageError('not signed in to Claude Code');
+    assert.strictEqual(status.text, '$(watch) —');
+    assert.strictEqual(
+      status.tooltip,
+      'Claude session (5h): unavailable — not signed in to Claude Code. Click to retry.'
+    );
+  });
+});
+
+suite('usage — credentials and request', () => {
+  test('parseAccessToken reads claudeAiOauth.accessToken', () => {
+    assert.strictEqual(parseAccessToken('{"claudeAiOauth":{"accessToken":"tok-123","refreshToken":"r"}}'), 'tok-123');
+    assert.strictEqual(parseAccessToken('{"claudeAiOauth":{}}'), null);
+    assert.strictEqual(parseAccessToken('not json'), null);
+  });
+
+  test('fetchUsage sends the bearer token and the OAuth beta header', async () => {
+    let seen: { url: string; headers: Record<string, string> } | undefined;
+    const fake: FetchLike = async (url, init) => {
+      seen = { url, headers: init.headers };
+      return { ok: true, status: 200, json: async () => BODY };
+    };
+    const usage = await fetchUsage('tok-123', fake);
+    assert.strictEqual(seen?.url, USAGE_URL);
+    assert.strictEqual(seen?.headers.Authorization, 'Bearer tok-123');
+    assert.strictEqual(seen?.headers['anthropic-beta'], 'oauth-2025-04-20');
+    assert.strictEqual(usage.session?.utilization, 42.4);
+  });
+
+  test('fetchUsage rejects HTTP errors and unexpected bodies', async () => {
+    const reply = (code: number, body: unknown): FetchLike => async () => ({
+      ok: code < 400,
+      status: code,
+      json: async () => body,
+    });
+    await assert.rejects(fetchUsage('t', reply(401, {})), /HTTP 401/);
+    await assert.rejects(fetchUsage('t', reply(200, { hello: 1 })), /unexpected usage response/);
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm test`
+Expected: compile error `Cannot find module '../usage'`.
+
+- [ ] **Step 3: Implement `src/usage.ts`**
+
+```ts
+import { execFile } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+export const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
+const KEYCHAIN_SERVICE = 'Claude Code-credentials';
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export interface UsageWindow {
+  /** Share of the window used, 0–100. */
+  utilization: number;
+  /** When the window resets; null when no window is active. */
+  resetsAt: Date | null;
+}
+
+export interface Usage {
+  session: UsageWindow | null;
+  weekly: UsageWindow | null;
+}
+
+export interface UsageStatus {
+  text: string;
+  tooltip: string;
+}
+
+function parseWindow(raw: unknown): UsageWindow | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const { utilization, resets_at: resetsAt } = raw as { utilization?: unknown; resets_at?: unknown };
+  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) {
+    return null;
+  }
+  if (resetsAt === null || resetsAt === undefined) {
+    return { utilization, resetsAt: null };
+  }
+  const time = typeof resetsAt === 'string' ? Date.parse(resetsAt) : NaN;
+  return Number.isFinite(time) ? { utilization, resetsAt: new Date(time) } : null;
+}
+
+/** Reads the usage endpoint's body; the windows sit at the top level or under rate_limits. */
+export function parseUsage(body: unknown): Usage | null {
+  if (!body || typeof body !== 'object') {
+    return null;
+  }
+  const root = body as Record<string, unknown>;
+  const limits = (
+    root.rate_limits && typeof root.rate_limits === 'object' ? root.rate_limits : root
+  ) as Record<string, unknown>;
+  if (!('five_hour' in limits) && !('seven_day' in limits)) {
+    return null;
+  }
+  return { session: parseWindow(limits.five_hour), weekly: parseWindow(limits.seven_day) };
+}
+
+/** 24-hour local clock, e.g. 07:05. */
+export function formatClock(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function weeklyLine(weekly: UsageWindow | null): string {
+  if (!weekly) {
+    return '';
+  }
+  const resets = weekly.resetsAt
+    ? `, resets ${WEEKDAYS[weekly.resetsAt.getDay()]} ${formatClock(weekly.resetsAt)}`
+    : '';
+  return `\nWeekly (7 days): ${Math.round(weekly.utilization)}% used${resets}.`;
+}
+
+export function formatUsageStatus(usage: Usage, now: Date): UsageStatus {
+  const session = usage.session;
+  const weekly = weeklyLine(usage.weekly);
+  if (!session || !session.resetsAt || session.resetsAt.getTime() <= now.getTime()) {
+    return {
+      text: '$(watch) —',
+      tooltip: `Claude session (5h): no active window — it starts with your next message.${weekly}\nClick to refresh.`,
+    };
+  }
+  const clock = formatClock(session.resetsAt);
+  const used = Math.round(session.utilization);
+  return {
+    text: `$(watch) ${clock} · ${used}%`,
+    tooltip: `Claude session (5h): ${used}% used, resets at ${clock}.${weekly}\nClick to refresh.`,
+  };
+}
+
+export function formatUsageError(reason: string): UsageStatus {
+  return {
+    text: '$(watch) —',
+    tooltip: `Claude session (5h): unavailable — ${reason}. Click to retry.`,
+  };
+}
+
+/** Extracts the OAuth access token from Claude Code's stored credentials JSON. */
+export function parseAccessToken(raw: string): string | null {
+  try {
+    const token = (JSON.parse(raw) as { claudeAiOauth?: { accessToken?: unknown } }).claudeAiOauth?.accessToken;
+    return typeof token === 'string' && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+function readKeychain(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      '/usr/bin/security',
+      ['find-generic-password', '-s', KEYCHAIN_SERVICE, '-w'],
+      { timeout: 10000 },
+      (err, stdout) => (err ? reject(err) : resolve(stdout.trim()))
+    );
+  });
+}
+
+/**
+ * Reads Claude Code's OAuth access token from the macOS Keychain, or from
+ * ~/.claude/.credentials.json elsewhere. Returns null when there is none
+ * (signed out, or using an API key): an expected state the status bar shows,
+ * not an error.
+ */
+export async function readAccessToken(): Promise<string | null> {
+  try {
+    const raw = process.platform === 'darwin'
+      ? await readKeychain()
+      : await fs.promises.readFile(path.join(os.homedir(), '.claude', '.credentials.json'), 'utf8');
+    return parseAccessToken(raw);
+  } catch {
+    return null;
+  }
+}
+
+export type FetchLike = (
+  url: string,
+  init: { headers: Record<string, string>; signal?: AbortSignal }
+) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
+
+/** Fetches the current usage windows. The token is sent only to USAGE_URL. */
+export async function fetchUsage(
+  token: string,
+  fetchFn: FetchLike = (url, init) => fetch(url, init)
+): Promise<Usage> {
+  const response = await fetchFn(USAGE_URL, {
+    headers: { Authorization: `Bearer ${token}`, 'anthropic-beta': 'oauth-2025-04-20' },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) {
+    throw new Error(`usage request failed (HTTP ${response.status})`);
+  }
+  const usage = parseUsage(await response.json());
+  if (!usage) {
+    throw new Error('unexpected usage response');
+  }
+  return usage;
+}
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `npm test`
+Expected: `58 passing`.
+
+- [ ] **Step 5: Wire the clock into `src/extension.ts`**
+
+Replace `src/extension.ts` with the Task 7 version plus the session clock (new: the `./usage` import, `USAGE_FLAG`, `USAGE_REFRESH_MS`, the "Session clock" block, the focus refresh in `windowListener`, the two `bidi-usage.*` commands, their subscriptions, and `void refreshUsage()` before the initial sync):
+
+```ts
+import * as vscode from 'vscode';
+import { FEATURES, Feature, FeatureId, RTL } from './features';
+import { checkInstallHealth, formatHealthWarning, isHealthy } from './health';
+import { getStatusBarState } from './status';
+import { syncInstall } from './sync';
+import { UsageStatus, fetchUsage, formatUsageError, formatUsageStatus, readAccessToken } from './usage';
+
+const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
+const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
+const USAGE_FLAG = 'bidiUsage.enabled';
+const USAGE_REFRESH_MS = 5 * 60 * 1000;
+
+function formatError(action: string, err: unknown): string {
+  const isPermission = err instanceof Error &&
+    (err as NodeJS.ErrnoException).code === 'EACCES';
+  const msg = err instanceof Error ? err.message : String(err);
+  const hint = isPermission ? ' Try running VSCode as administrator.' : '';
+  return `BiDi RTL & Theme: Could not ${action} — ${msg}.${hint}`;
+}
+
+async function offerReload(message: string): Promise<void> {
+  const choice = await vscode.window.showInformationMessage(message, 'Reload Window');
+  if (choice === 'Reload Window') {
+    await vscode.commands.executeCommand('workbench.action.reloadWindow')
+      .then(undefined, () => { /* reload unavailable; user will need to restart manually */ });
+  }
+}
+
+type SyncOutcome = 'changed' | 'unchanged' | 'error' | 'missing';
+
+// Every sync goes through this chain so that activation, the onDidChange
+// listener and the commands never read/write index.css concurrently.
+let syncQueue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(op: () => Promise<T>): Promise<T> {
+  const result = syncQueue.then(op);
+  syncQueue = result.catch(() => undefined);
+  return result;
+}
+
+// Error toasts are not awaited, so a pending toast never blocks the queue.
+function reportError(action: string, err: unknown, silent: boolean): void {
+  if (silent) {
+    console.error(formatError(action, err));
+  } else {
+    void vscode.window.showErrorMessage(formatError(action, err));
+  }
+}
+
+function warnMissing(): void {
+  void vscode.window.showWarningMessage(
+    'BiDi RTL & Theme: Claude Code extension not found. Please install it first.'
+  );
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  const isEnabled = (feature: Feature): boolean =>
+    context.globalState.get<boolean>(feature.flagKey, true);
+  const enabledIds = (): Set<FeatureId> =>
+    new Set(FEATURES.filter(isEnabled).map((feature) => feature.id));
+
+  const statusItems = FEATURES.map((feature, index) => {
+    const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100 - index);
+    item.command = feature.toggleCommand;
+    item.show();
+    return { feature, item };
+  });
+  const refreshStatusBar = (): void => {
+    for (const { feature, item } of statusItems) {
+      const state = getStatusBarState(feature.label, isEnabled(feature));
+      item.text = state.text;
+      item.tooltip = state.tooltip;
+    }
+  };
+  refreshStatusBar();
+
+  // Session clock: when the 5-hour usage window resets. Errors show in the
+  // item's tooltip, never as a toast.
+  const usageItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100 - FEATURES.length
+  );
+  usageItem.command = 'bidi-usage.refresh';
+  let lastUsageFetch = 0;
+  let resetTimer: NodeJS.Timeout | undefined;
+  const isUsageEnabled = (): boolean => context.globalState.get<boolean>(USAGE_FLAG, true);
+
+  const refreshUsage = async (): Promise<void> => {
+    clearTimeout(resetTimer);
+    if (!isUsageEnabled()) {
+      usageItem.hide();
+      return;
+    }
+    lastUsageFetch = Date.now();
+    let status: UsageStatus;
+    try {
+      const token = await readAccessToken();
+      if (!token) {
+        throw new Error('not signed in to Claude Code');
+      }
+      const usage = await fetchUsage(token);
+      status = formatUsageStatus(usage, new Date());
+      // Refresh right after the window resets, if that happens before the next tick.
+      const untilReset = (usage.session?.resetsAt?.getTime() ?? 0) - Date.now();
+      if (untilReset > 0 && untilReset < USAGE_REFRESH_MS) {
+        resetTimer = setTimeout(() => void refreshUsage(), untilReset + 5000);
+      }
+    } catch (err: unknown) {
+      status = formatUsageError(err instanceof Error ? err.message : String(err));
+    }
+    usageItem.text = status.text;
+    usageItem.tooltip = status.tooltip;
+    usageItem.show();
+  };
+  const usageTimer = setInterval(() => void refreshUsage(), USAGE_REFRESH_MS);
+
+  // At most one warning per Claude Code version; the toast is never awaited.
+  const warnIfUnhealthy = async (ext: vscode.Extension<unknown>): Promise<void> => {
+    const version = String(ext.packageJSON?.version ?? 'unknown');
+    if (context.globalState.get<string>(LAST_WARNED_KEY) === version) {
+      return;
+    }
+    const report = await checkInstallHealth(ext.extensionPath);
+    if (isHealthy(report)) {
+      return;
+    }
+    await context.globalState.update(LAST_WARNED_KEY, version);
+    void vscode.window.showWarningMessage(formatHealthWarning(version, report));
+  };
+
+  const sync = (silent: boolean): Promise<SyncOutcome> => enqueue(async () => {
+    const ext = vscode.extensions.getExtension(CLAUDE_EXTENSION_ID);
+    if (!ext) {
+      return 'missing';
+    }
+    const enabled = enabledIds();
+    let cssChanged: boolean;
+    try {
+      const result = await syncInstall(ext.extensionPath, context.extensionPath, enabled);
+      for (const assetError of result.assetErrors) {
+        console.error(`BiDi Theme: font copy failed — ${assetError}`);
+      }
+      cssChanged = result.cssChanged;
+    } catch (err: unknown) {
+      reportError('update Claude Code CSS', err, silent);
+      return 'error';
+    }
+    if (enabled.size > 0) {
+      await warnIfUnhealthy(ext).catch((err: unknown) => {
+        console.error(formatError('check Claude Code', err));
+      });
+    }
+    return cssChanged ? 'changed' : 'unchanged';
+  });
+
+  // Sets one module's flag and syncs; the flag is restored if the sync fails.
+  const setFeature = async (feature: Feature, enabled: boolean): Promise<SyncOutcome> => {
+    const previous = isEnabled(feature);
+    await context.globalState.update(feature.flagKey, enabled);
+    const outcome = await sync(false);
+    if (outcome === 'missing' || outcome === 'error') {
+      await context.globalState.update(feature.flagKey, previous);
+    }
+    if (outcome === 'missing') {
+      warnMissing();
+    }
+    refreshStatusBar();
+    return outcome;
+  };
+
+  // globalState is shared across windows; refresh when this window regains focus.
+  const windowListener = vscode.window.onDidChangeWindowState((e) => {
+    if (e.focused) {
+      refreshStatusBar();
+      if (Date.now() - lastUsageFetch > 60_000) {
+        void refreshUsage();
+      }
+    }
+  });
+
+  // Claude Code updates change its extensionPath (version is in the folder
+  // name), so the new install needs syncing.
+  const changeListener = vscode.extensions.onDidChange(() => {
+    void sync(true);
+  });
+
+  const toggleCommands = FEATURES.map((feature) =>
+    vscode.commands.registerCommand(feature.toggleCommand, async () => {
+      const enabled = !isEnabled(feature);
+      const outcome = await setFeature(feature, enabled);
+      if (outcome === 'changed' || outcome === 'unchanged') {
+        void offerReload(
+          `BiDi ${feature.label}: turned ${enabled ? 'on' : 'off'}. Reload window to apply.`
+        );
+      }
+    })
+  );
+
+  const applyCmd = vscode.commands.registerCommand('bidi-rtl.applyPatch', async () => {
+    if ((await setFeature(RTL, true)) === 'changed') {
+      void offerReload('BiDi RTL: RTL patch applied to Claude Code. Reload window to apply.');
+    }
+  });
+
+  const removeCmd = vscode.commands.registerCommand('bidi-rtl.removePatch', async () => {
+    const outcome = await setFeature(RTL, false);
+    if (outcome === 'changed') {
+      void offerReload('BiDi RTL: RTL patch removed. Reload window to apply.');
+    } else if (outcome === 'unchanged') {
+      void vscode.window.showInformationMessage('BiDi RTL: No RTL patch found — nothing to remove.');
+    }
+  });
+
+  const usageRefreshCmd = vscode.commands.registerCommand('bidi-usage.refresh', () => refreshUsage());
+
+  const usageToggleCmd = vscode.commands.registerCommand('bidi-usage.toggle', async () => {
+    await context.globalState.update(USAGE_FLAG, !isUsageEnabled());
+    await refreshUsage();
+  });
+
+  context.subscriptions.push(
+    ...statusItems.map(({ item }) => item),
+    usageItem,
+    windowListener,
+    changeListener,
+    ...toggleCommands,
+    applyCmd,
+    removeCmd,
+    usageRefreshCmd,
+    usageToggleCmd,
+    { dispose: () => { clearInterval(usageTimer); clearTimeout(resetTimer); } }
+  );
+
+  void refreshUsage();
+
+  // The initial sync runs after everything is registered and never blocks
+  // activation on a toast.
+  const outcome = await sync(false);
+  if (outcome === 'missing') {
+    warnMissing();
+  } else if (outcome === 'changed') {
+    void offerReload('BiDi RTL & Theme: Claude Code CSS updated. Reload window to apply.');
+  }
+}
+
+export function deactivate(): void {}
+```
+
+- [ ] **Step 6: Add the commands to `package.json`**
+
+Append to `contributes.commands`, after `bidi-theme.toggle`:
+
+```json
+      {
+        "command": "bidi-usage.toggle",
+        "title": "BiDi Usage: Toggle Session Clock On/Off"
+      },
+      {
+        "command": "bidi-usage.refresh",
+        "title": "BiDi Usage: Refresh Session Clock"
+      }
+```
+
+- [ ] **Step 7: Run the tests and check the token never reaches a log**
+
+```bash
+npm test && (grep -n "console\.\(log\|error\|warn\)" src/usage.ts || echo "usage.ts never logs")
+```
+
+Expected: `58 passing`, then `usage.ts never logs`.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/usage.ts src/test/usage.test.ts src/extension.ts package.json
+git commit -F - <<'EOF'
+feat: status-bar clock for when the 5-hour session resets
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+EOF
+```
+
+---
+
+### Task 9: README, package, install and the manual check
 
 **Files:**
 - Modify: `README.md`
@@ -2114,10 +2713,11 @@ EOF
 ````markdown
 # BiDi RTL & Theme for Claude Code
 
-A small VS Code extension with two independent modules for the Claude Code conversation panel:
+A small VS Code extension for the Claude Code conversation panel:
 
 - **RTL** makes mixed Hebrew/English conversations read naturally.
 - **Theme** gives the panel a warm, easier-to-read look in dark themes.
+- **Session clock** shows in the status bar when your 5-hour usage window resets.
 
 If you talk to Claude Code in Hebrew, you've seen it: punctuation jumps to the wrong side,
 mixed Hebrew/English lines scramble, and reading your own prompt back is a headache. This
@@ -2138,8 +2738,19 @@ extension fixes that at the source.
 - Your messages as soft blocks; tool calls grouped into quiet boxes.
 - A roomier input box: bigger buttons, actions on the left, status on the right.
 
-Light and high-contrast themes are left untouched. No telemetry, no network calls, no settings
-to configure.
+Light and high-contrast themes are left untouched.
+
+### Session clock
+
+A status-bar item, `⏱ 17:42 · 42%`, shows when your current 5-hour Claude usage window resets
+and how much of it you've used. Hover for the weekly window; click to refresh.
+
+It asks Anthropic's usage endpoint (the one Claude Code itself uses) with the login Claude Code
+already stored on your machine: the macOS Keychain entry `Claude Code-credentials`, or
+`~/.claude/.credentials.json` elsewhere. The token is read fresh for each refresh, sent only to
+`api.anthropic.com`, and never logged or stored. macOS may ask once to allow Keychain access.
+
+No telemetry, no network calls besides that one, and no settings to configure.
 
 ## Install
 
@@ -2159,6 +2770,8 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 |---|---|
 | `BiDi RTL: Toggle RTL On/Off` | Turns RTL on or off (remembered across restarts). Also the **RTL** button in the status bar. |
 | `BiDi Theme: Toggle Warm Theme On/Off` | Turns the theme on or off (remembered across restarts). Also the **Theme** button in the status bar. |
+| `BiDi Usage: Toggle Session Clock On/Off` | Shows or hides the session clock. |
+| `BiDi Usage: Refresh Session Clock` | Refreshes the clock now (same as clicking it). |
 | `BiDi RTL: Apply RTL Patch to Claude Code` | Turns RTL on. |
 | `BiDi RTL: Remove RTL Patch` | Turns RTL off. |
 
@@ -2208,7 +2821,7 @@ MIT.
 npm test && npx vsce package && npx vsce ls | grep -E '^(css|fonts|out)/' | sort
 ```
 
-Expected: `46 passing`; `vscode-bidi-rtl-0.1.0.vsix` created; the listing includes `css/rtl.css`, `css/theme.css`, `fonts/OFL.txt`, `fonts/rubik-hebrew.woff2`, `fonts/rubik-latin.woff2` and the `out/*.js` modules (`cleanup`, `extension`, `features`, `health`, `patcher`, `status`, `sync`, `uninstall`), and nothing under `out/test/` or `scripts/`.
+Expected: `58 passing`; `vscode-bidi-rtl-0.1.0.vsix` created; the listing includes `css/rtl.css`, `css/theme.css`, `fonts/OFL.txt`, `fonts/rubik-hebrew.woff2`, `fonts/rubik-latin.woff2` and the `out/*.js` modules (`cleanup`, `extension`, `features`, `health`, `patcher`, `status`, `sync`, `uninstall`, `usage`), and nothing under `out/test/` or `scripts/`.
 
 - [ ] **Step 3: Install into VS Code Insiders**
 
@@ -2227,7 +2840,7 @@ C=/Users/snirhakmoun/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-d
 grep -c 'bidi-theme-patch-start' $C/index.css; grep -c 'bidi-rtl-patch-start' $C/index.css; ls $C | grep bidi-theme
 ```
 
-Expected: `1`, `1`, then `bidi-theme-rubik-hebrew.woff2` and `bidi-theme-rubik-latin.woff2`. The status bar shows `✓ Theme` and `✓ RTL`. If the extension offered **Reload Window** after activation, reload once more so the Claude Code panel loads the new CSS.
+Expected: `1`, `1`, then `bidi-theme-rubik-hebrew.woff2` and `bidi-theme-rubik-latin.woff2`. The status bar shows `✓ Theme`, `✓ RTL` and the session clock (`⏱ HH:MM · N%`, or `⏱ —` with the reason in its tooltip). If the extension offered **Reload Window** after activation, reload once more so the Claude Code panel loads the new CSS.
 
 - [ ] **Step 5: Manual check with the user**
 
@@ -2237,6 +2850,7 @@ Walk through the spec's manual list with the user and record the results:
 - A narrow sidebar (< 500px): the footer still collapses sensibly.
 - A light theme and a high-contrast theme: the panel is unchanged.
 - All four RTL/theme on/off combinations, via the status-bar buttons.
+- The session clock: its time matches Claude Code's usage view ("Session (5hr) … Resets in Xh"); hovering shows the weekly line; clicking refreshes; `BiDi Usage: Toggle Session Clock On/Off` hides and shows it. If macOS asks for Keychain access, the user decides.
 
 Fix anything found in `css/theme.css`, re-run `npm test` and the fixture, repackage and reinstall.
 
