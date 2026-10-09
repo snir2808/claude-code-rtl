@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warm theme mockup</title>
+<style>
+:root{--bg-primary:#1d1d1f;--bg-secondary:#2d2d2f;--bg-tertiary:#3d3d3f;--border:#424245;--text-primary:#f5f5f7;--text-secondary:#a1a1a6}
+*{box-sizing:border-box}
+body{margin:0;padding:2rem;background:var(--bg-primary);color:var(--text-primary);font-family:system-ui,-apple-system,sans-serif;line-height:1.5}
+h2{font-size:1.5rem;font-weight:600;margin:0 0 .5rem}
+p,ul{margin:0}
+.subtitle{color:var(--text-secondary);margin-bottom:1.5rem}
+</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+.fd-wrap{direction:rtl}
+.fd-wrap h2{margin-bottom:.35rem}
+.fd-wrap .subtitle{max-width:940px;margin-bottom:1.25rem}
+.fd-frame{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#1b1a18}
+.fd-tab{direction:ltr;height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;background:#181818;color:#9d9d9d;font:12px -apple-system,system-ui,sans-serif;border-bottom:1px solid #2b2b2b}
+.fd-tab b{color:#cccccc;font-weight:500}
+.fd-panel{position:relative;height:760px;display:flex;flex-direction:column;background:#1b1a18;color:#ebe5da;font:15px/1.75 "Rubik",-apple-system,system-ui,sans-serif}
+.fd-msgs{flex:1;min-height:0;overflow:hidden;padding:30px 24px 0}
+.fd-col{max-width:680px;margin:0 auto;direction:rtl}
+.fd-col p,.fd-col li,.fd-col h3,.fd-user,.fd-input{unicode-bidi:plaintext;text-align:start}
+.fd-user{background:#262320;color:#f5f0e8;border-radius:14px;padding:12px 16px;border-inline-start:3px solid #d97757;margin-bottom:22px}
+.fd-tools{direction:ltr;text-align:left;margin:0 0 18px;padding:8px 14px;background:#211f1c;border:1px solid #2b2824;border-radius:12px;font-size:12.5px;line-height:2;color:#968f83}
+.fd-tools b{color:#cfc6b7;font-weight:600;margin-right:6px}
+.fd-tools .ok{color:#a8c792}
+.fd-tools .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#a8c792;margin-right:8px;vertical-align:1px}
+.fd-col h3{font-size:18px;font-weight:600;color:#f5f0e8;margin:0 0 6px;line-height:1.4}
+.fd-col p{margin:0 0 12px}
+.fd-col ul{margin:0 0 14px;padding-inline-start:22px}
+.fd-col li{margin-bottom:3px}
+.fd-col li::marker{color:#d97757}
+.fd-col code{font:13px Menlo,Monaco,monospace;background:#2b2824;color:#f2b896;padding:2px 6px;border-radius:6px;unicode-bidi:isolate}
+.fd-col pre{direction:ltr;text-align:left;white-space:pre;background:#121110;border:1px solid #2a2724;border-radius:12px;padding:12px 16px;margin:0 0 14px;font:13px/1.65 Menlo,Monaco,monospace;color:#e9e3d8;overflow:hidden}
+.fd-col pre .k{color:#e8a07f}.fd-col pre .s{color:#a8c792}
+.fd-col a{color:#e8a07f;text-decoration:underline;text-underline-offset:3px;text-decoration-color:#e8a07f66}
+.fd-composer-wrap{flex:none;padding:12px 24px 20px}
+.fd-composer{max-width:680px;margin:0 auto;background:#242120;border:1px solid #d97757;border-radius:16px;box-shadow:0 0 0 3px rgba(217,119,87,.14),0 8px 28px rgba(0,0,0,.35)}
+.fd-input{direction:rtl;color:#f5f0e8;padding:14px 16px 4px;min-height:54px}
+.fd-caret{display:inline-block;width:1.5px;height:1.05em;background:#d97757;vertical-align:-3px;margin-inline-start:2px;animation:fdblink 1s steps(1) infinite}
+@keyframes fdblink{50%{opacity:0}}
+.fd-row{direction:ltr;display:flex;align-items:center;gap:6px;padding:8px 10px 10px;white-space:nowrap;font-size:12.5px}
+.fd-sp{flex:1}
+.fd-btn{height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:9px;background:#2f2b26;color:#ddd4c6;line-height:1}
+.fd-btn.icon{width:30px;padding:0;justify-content:center;font-size:14px}
+.fd-btn.ghost{background:transparent;border:1px solid #453e35}
+.fd-bars{display:inline-flex;gap:2px;align-items:flex-end}
+.fd-bars i{display:block;width:3px;height:10px;border-radius:1px;background:#d97757}
+.fd-bars i.off{background:#4f483e}
+.fd-send{width:34px;height:34px;border-radius:50%;background:#d97757;color:#1b1a18;display:inline-flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;flex:none}
+
+.fd-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:18px}
+.fd-sw{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-secondary);font-size:.8rem}
+.fd-sw i{flex:none;width:28px;height:28px;border-radius:7px;border:1px solid rgba(127,127,127,.35)}
+.fd-sw span{color:var(--text-secondary);font-family:Menlo,monospace;font-size:.72rem;display:block;direction:ltr;text-align:right}
+.fd-note{margin-top:1rem;font-size:.82rem;color:var(--text-secondary);max-width:940px;line-height:1.6}
+</style>
+
+<div class="fd-wrap">
+  <h2>העיצוב המלא: A + A1 + Rubik</h2>
+  <p class="subtitle">ככה הפאנל ייראה בלשונית רחבה. ההודעות ותיבת הקלט יושבות באותה עמודה ממורכזת ברוחב 680px, שהוא הרוחב שבו Claude Code כבר מגביל היום את תיבת הקלט. מתחת לפאנל: הפלטה.</p>
+
+  <div class="fd-frame">
+    <div class="fd-tab"><b>✳ Claude Code</b> · config tests</div>
+    <div class="fd-panel">
+      <div class="fd-msgs">
+        <div class="fd-col">
+          <div class="fd-user">להוסיף בדיקה ל-parseConfig שמכסה קובץ ריק, ולעדכן את ה-README</div>
+          <div class="fd-tools">
+            <div><span class="dot"></span><b>Read</b> src/config.ts</div>
+            <div><span class="dot"></span><b>Edit</b> src/config.test.ts <span class="ok">+6</span></div>
+            <div><span class="dot"></span><b>Edit</b> README.md <span class="ok">+4 −1</span></div>
+            <div><span class="dot"></span><b>Bash</b> npm test <span class="ok">✓ 12 passed</span></div>
+          </div>
+          <h3>סיכום השינויים</h3>
+          <p>עדכנתי את <code>parseConfig</code> כך שקובץ ריק מחזיר את ערכי ברירת המחדל במקום לזרוק <code>TypeError</code>. הבדיקה החדשה ב-<code>config.test.ts</code> עוברת, וגם 11 הבדיקות הקיימות.</p>
+          <ul><li>הוספתי fixture של קובץ ריק</li><li>עדכנתי את ה-README עם דוגמה חדשה, לפי <a>ההנחיות בקובץ CONTRIBUTING</a></li><li>לא נגעתי ב-API הציבורי</li></ul>
+          <pre><span class="k">test</span>(<span class="s">'empty file → defaults'</span>, () =&gt; {
+  expect(parseConfig(<span class="s">''</span>)).toEqual(DEFAULTS);
+});</pre>
+          <p>רוצה שאוסיף גם מקרה של קובץ עם הערות בלבד?</p>
+        </div>
+      </div>
+      <div class="fd-composer-wrap">
+        <div class="fd-composer">
+          <div class="fd-input">כן, ואז להריץ שוב את כל הבדיקות<span class="fd-caret"></span></div>
+          <div class="fd-row">
+            <span class="fd-btn icon">+</span><span class="fd-btn icon">/</span><span class="fd-btn">⧉ config.ts</span>
+            <span class="fd-sp"></span>
+            <span class="fd-btn ghost">⏵⏵ Edit automatically</span>
+            <span class="fd-btn ghost">Opus <span class="fd-bars"><i></i><i></i><i class="off"></i></span></span>
+            <span class="fd-btn ghost">◔ 32%</span>
+            <span class="fd-send">↑</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fd-legend">
+    <div class="fd-sw"><i style="background:#1b1a18"></i><div>רקע הפאנל<span>#1b1a18</span></div></div>
+    <div class="fd-sw"><i style="background:#262320"></i><div>הודעה שלך / משטחים<span>#262320 · #211f1c</span></div></div>
+    <div class="fd-sw"><i style="background:#242120;border-color:#3b362f"></i><div>תיבת קלט ותפריטים<span>#242120 · border #3b362f</span></div></div>
+    <div class="fd-sw"><i style="background:#ebe5da"></i><div>טקסט<span>#ebe5da</span></div></div>
+    <div class="fd-sw"><i style="background:#a39d92"></i><div>טקסט משני<span>#a39d92 · כלים #968f83</span></div></div>
+    <div class="fd-sw"><i style="background:#d97757"></i><div>הדגשה (שליחה, פוקוס, סימונים)<span>#d97757 · קישורים #e8a07f</span></div></div>
+    <div class="fd-sw"><i style="background:#121110"></i><div>בלוק קוד<span>#121110 · inline #2b2824</span></div></div>
+    <div class="fd-sw"><i style="background:#a8c792"></i><div>הצלחה / תוספות<span>#a8c792</span></div></div>
+  </div>
+
+  <p class="fd-note">טקסט ב-Rubik 15px עם מרווח שורות 1.75, וכותרות ב-18px. פונט הקוד לא משתנה ונשאר הפונט של העורך ב-VS Code (Menlo כברירת מחדל). כל הניגודיות עומדת ב-WCAG AA: הטקסט הראשי ביחס של כ-13:1 לרקע, והטקסט המשני מעל 4.5:1. תפריטים, דיאלוגים של הרשאות ורשימת השיחות מקבלים את הפלטה דרך ה-tokens, בלי עיצוב נפרד.</p>
+</div>
+
+</body>
+</html>
