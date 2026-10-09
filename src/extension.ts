@@ -1,25 +1,18 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
-import { applyCssPatch, removeCssPatch } from './patcher';
+import { FEATURES, Feature, FeatureId, RTL } from './features';
+import { checkInstallHealth, formatHealthWarning, isHealthy } from './health';
 import { getStatusBarState } from './status';
+import { syncInstall } from './sync';
 
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
-const ENABLED_KEY = 'bidiRtl.enabled';
-
-function getClaudeCodeCssPath(): string | undefined {
-  const ext = vscode.extensions.getExtension(CLAUDE_EXTENSION_ID);
-  if (!ext) {
-    return undefined;
-  }
-  return path.join(ext.extensionPath, 'webview', 'index.css');
-}
+const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
 
 function formatError(action: string, err: unknown): string {
   const isPermission = err instanceof Error &&
     (err as NodeJS.ErrnoException).code === 'EACCES';
   const msg = err instanceof Error ? err.message : String(err);
   const hint = isPermission ? ' Try running VSCode as administrator.' : '';
-  return `BiDi RTL: Could not ${action} — ${msg}.${hint}`;
+  return `BiDi RTL & Theme: Could not ${action} — ${msg}.${hint}`;
 }
 
 async function offerReload(message: string): Promise<void> {
@@ -30,15 +23,15 @@ async function offerReload(message: string): Promise<void> {
   }
 }
 
-type PatchResult = 'changed' | 'unchanged' | 'error' | 'missing';
+type SyncOutcome = 'changed' | 'unchanged' | 'error' | 'missing';
 
-// Every patch operation goes through this chain so that activation, the
-// onDidChange listener and the commands never read/write index.css concurrently.
-let patchQueue: Promise<unknown> = Promise.resolve();
+// Every sync goes through this chain so that activation, the onDidChange
+// listener and the commands never read/write index.css concurrently.
+let syncQueue: Promise<unknown> = Promise.resolve();
 
 function enqueue<T>(op: () => Promise<T>): Promise<T> {
-  const result = patchQueue.then(op);
-  patchQueue = result.catch(() => undefined);
+  const result = syncQueue.then(op);
+  syncQueue = result.catch(() => undefined);
   return result;
 }
 
@@ -51,58 +44,85 @@ function reportError(action: string, err: unknown, silent: boolean): void {
   }
 }
 
-function tryApplyPatch(silent: boolean): Promise<PatchResult> {
-  return enqueue(async () => {
-    const cssPath = getClaudeCodeCssPath();
-    if (!cssPath) {
-      return 'missing';
-    }
-    try {
-      return (await applyCssPatch(cssPath)) ? 'changed' : 'unchanged';
-    } catch (err: unknown) {
-      reportError('patch Claude Code CSS', err, silent);
-      return 'error';
-    }
-  });
-}
-
-function tryRemovePatch(silent: boolean): Promise<PatchResult> {
-  return enqueue(async () => {
-    const cssPath = getClaudeCodeCssPath();
-    if (!cssPath) {
-      return 'missing';
-    }
-    try {
-      return (await removeCssPatch(cssPath)) ? 'changed' : 'unchanged';
-    } catch (err: unknown) {
-      reportError('remove patch', err, silent);
-      return 'error';
-    }
-  });
-}
-
 function warnMissing(): void {
   void vscode.window.showWarningMessage(
-    'BiDi RTL: Claude Code extension not found. Please install it first.'
+    'BiDi RTL & Theme: Claude Code extension not found. Please install it first.'
   );
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const isEnabled = (): boolean => context.globalState.get<boolean>(ENABLED_KEY, true);
+  const isEnabled = (feature: Feature): boolean =>
+    context.globalState.get<boolean>(feature.flagKey, true);
+  const enabledIds = (): Set<FeatureId> =>
+    new Set(FEATURES.filter(isEnabled).map((feature) => feature.id));
 
-  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBar.command = 'bidi-rtl.toggle';
+  const statusItems = FEATURES.map((feature, index) => {
+    const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100 - index);
+    item.command = feature.toggleCommand;
+    item.show();
+    return { feature, item };
+  });
   const refreshStatusBar = (): void => {
-    const state = getStatusBarState(isEnabled());
-    statusBar.text = state.text;
-    statusBar.tooltip = state.tooltip;
+    for (const { feature, item } of statusItems) {
+      const state = getStatusBarState(feature.label, isEnabled(feature));
+      item.text = state.text;
+      item.tooltip = state.tooltip;
+    }
   };
   refreshStatusBar();
-  statusBar.show();
 
-  const setEnabled = async (enabled: boolean): Promise<void> => {
-    await context.globalState.update(ENABLED_KEY, enabled);
+  // At most one warning per Claude Code version; the toast is never awaited.
+  const warnIfUnhealthy = async (ext: vscode.Extension<unknown>): Promise<void> => {
+    const version = String(ext.packageJSON?.version ?? 'unknown');
+    if (context.globalState.get<string>(LAST_WARNED_KEY) === version) {
+      return;
+    }
+    const report = await checkInstallHealth(ext.extensionPath);
+    if (isHealthy(report)) {
+      return;
+    }
+    await context.globalState.update(LAST_WARNED_KEY, version);
+    void vscode.window.showWarningMessage(formatHealthWarning(version, report));
+  };
+
+  const sync = (silent: boolean): Promise<SyncOutcome> => enqueue(async () => {
+    const ext = vscode.extensions.getExtension(CLAUDE_EXTENSION_ID);
+    if (!ext) {
+      return 'missing';
+    }
+    const enabled = enabledIds();
+    let cssChanged: boolean;
+    try {
+      const result = await syncInstall(ext.extensionPath, context.extensionPath, enabled);
+      for (const assetError of result.assetErrors) {
+        console.error(`BiDi Theme: font copy failed — ${assetError}`);
+      }
+      cssChanged = result.cssChanged;
+    } catch (err: unknown) {
+      reportError('update Claude Code CSS', err, silent);
+      return 'error';
+    }
+    if (enabled.size > 0) {
+      await warnIfUnhealthy(ext).catch((err: unknown) => {
+        console.error(formatError('check Claude Code', err));
+      });
+    }
+    return cssChanged ? 'changed' : 'unchanged';
+  });
+
+  // Sets one module's flag and syncs; the flag is restored if the sync fails.
+  const setFeature = async (feature: Feature, enabled: boolean): Promise<SyncOutcome> => {
+    const previous = isEnabled(feature);
+    await context.globalState.update(feature.flagKey, enabled);
+    const outcome = await sync(false);
+    if (outcome === 'missing' || outcome === 'error') {
+      await context.globalState.update(feature.flagKey, previous);
+    }
+    if (outcome === 'missing') {
+      warnMissing();
+    }
     refreshStatusBar();
+    return outcome;
   };
 
   // globalState is shared across windows; refresh when this window regains focus.
@@ -113,82 +133,54 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   // Claude Code updates change its extensionPath (version is in the folder
-  // name), so the new CSS needs patching again.
+  // name), so the new install needs syncing.
   const changeListener = vscode.extensions.onDidChange(() => {
-    if (isEnabled()) {
-      void tryApplyPatch(true);
-    }
+    void sync(true);
   });
 
+  const toggleCommands = FEATURES.map((feature) =>
+    vscode.commands.registerCommand(feature.toggleCommand, async () => {
+      const enabled = !isEnabled(feature);
+      const outcome = await setFeature(feature, enabled);
+      if (outcome === 'changed' || outcome === 'unchanged') {
+        void offerReload(
+          `BiDi ${feature.label}: turned ${enabled ? 'on' : 'off'}. Reload window to apply.`
+        );
+      }
+    })
+  );
+
   const applyCmd = vscode.commands.registerCommand('bidi-rtl.applyPatch', async () => {
-    const result = await tryApplyPatch(false);
-    if (result === 'missing') {
-      warnMissing();
-      return;
-    }
-    if (result === 'error') {
-      return;
-    }
-    await setEnabled(true);
-    if (result === 'changed') {
-      void offerReload(
-        'BiDi RTL: RTL patch applied to Claude Code. Reload the Claude Code panel to activate.'
-      );
+    if ((await setFeature(RTL, true)) === 'changed') {
+      void offerReload('BiDi RTL: RTL patch applied to Claude Code. Reload window to apply.');
     }
   });
 
   const removeCmd = vscode.commands.registerCommand('bidi-rtl.removePatch', async () => {
-    const result = await tryRemovePatch(false);
-    if (result === 'missing') {
-      void vscode.window.showWarningMessage('BiDi RTL: Claude Code extension not found.');
-      return;
-    }
-    if (result === 'error') {
-      return;
-    }
-    await setEnabled(false);
-    if (result === 'changed') {
+    const outcome = await setFeature(RTL, false);
+    if (outcome === 'changed') {
       void offerReload('BiDi RTL: RTL patch removed. Reload window to apply.');
-    } else {
-      void vscode.window.showInformationMessage(
-        'BiDi RTL: No patch found — Claude Code CSS was already clean.'
-      );
+    } else if (outcome === 'unchanged') {
+      void vscode.window.showInformationMessage('BiDi RTL: No RTL patch found — nothing to remove.');
     }
-  });
-
-  const toggleCmd = vscode.commands.registerCommand('bidi-rtl.toggle', async () => {
-    const enabled = !isEnabled();
-    const result = await (enabled ? tryApplyPatch(false) : tryRemovePatch(false));
-    if (result === 'missing') {
-      warnMissing();
-      return;
-    }
-    if (result === 'error') {
-      return;
-    }
-    await setEnabled(enabled);
-    void offerReload(
-      `BiDi RTL: RTL turned ${enabled ? 'on' : 'off'}. Reload window to apply.`
-    );
   });
 
   context.subscriptions.push(
-    statusBar, windowListener, changeListener, applyCmd, removeCmd, toggleCmd
+    ...statusItems.map(({ item }) => item),
+    windowListener,
+    changeListener,
+    ...toggleCommands,
+    applyCmd,
+    removeCmd
   );
 
-  // Initial apply/remove runs after everything is registered and never blocks
+  // The initial sync runs after everything is registered and never blocks
   // activation on a toast.
-  if (isEnabled()) {
-    const result = await tryApplyPatch(false);
-    if (result === 'missing') {
-      warnMissing();
-    } else if (result === 'changed') {
-      void offerReload(
-        'BiDi RTL: RTL patch applied to Claude Code. Reload the Claude Code panel to activate.'
-      );
-    }
-  } else {
-    await tryRemovePatch(true);
+  const outcome = await sync(false);
+  if (outcome === 'missing') {
+    warnMissing();
+  } else if (outcome === 'changed') {
+    void offerReload('BiDi RTL & Theme: Claude Code CSS updated. Reload window to apply.');
   }
 }
 

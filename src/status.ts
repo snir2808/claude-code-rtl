@@ -3,14 +3,14 @@ export interface StatusBarState {
   tooltip: string;
 }
 
-export function getStatusBarState(enabled: boolean): StatusBarState {
+export function getStatusBarState(label: string, enabled: boolean): StatusBarState {
   return enabled
     ? {
-        text: '$(check) RTL',
-        tooltip: 'BiDi RTL for Claude Code is on — click to turn off',
+        text: `$(check) ${label}`,
+        tooltip: `BiDi ${label} for Claude Code is on — click to turn off`,
       }
     : {
-        text: '$(circle-slash) RTL',
-        tooltip: 'BiDi RTL for Claude Code is off — click to turn on',
+        text: `$(circle-slash) ${label}`,
+        tooltip: `BiDi ${label} for Claude Code is off — click to turn on`,
       };
 }
