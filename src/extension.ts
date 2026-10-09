@@ -3,7 +3,14 @@ import { FEATURES, Feature, FeatureId, RTL } from './features';
 import { checkInstallHealth, formatHealthWarning, isHealthy } from './health';
 import { getStatusBarState } from './status';
 import { syncInstall } from './sync';
-import { UsageStatus, fetchUsage, formatUsageError, formatUsageStatus, readAccessToken } from './usage';
+import {
+  CredentialReadError,
+  UsageStatus,
+  fetchUsage,
+  formatUsageError,
+  formatUsageStatus,
+  readAccessToken,
+} from './usage';
 
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
 const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
@@ -83,36 +90,67 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   usageItem.command = 'bidi-usage.refresh';
   let lastUsageFetch = 0;
   let resetTimer: NodeJS.Timeout | undefined;
+  let usageTimer: NodeJS.Timeout | undefined;
+  // Bumped by every refresh, the toggle and dispose. A refresh that finds it
+  // changed after an await has been superseded and leaves the item and the
+  // reset timer alone.
+  let usageGen = 0;
+  // Set when the Keychain was denied or never answered: the timers and the
+  // focus refresh stay quiet, since they would only raise the prompt again,
+  // until the user clicks the item or runs the toggle.
+  let usagePaused = false;
   const isUsageEnabled = (): boolean => context.globalState.get<boolean>(USAGE_FLAG, true);
 
-  const refreshUsage = async (): Promise<void> => {
+  const refreshUsage = async (trigger: 'auto' | 'user'): Promise<void> => {
+    if (trigger === 'user') {
+      usagePaused = false;
+    } else if (usagePaused) {
+      return;
+    }
+    // The bump also covers the disabled branch below: a refresh still in
+    // flight from before the clock was turned off stops when it resumes.
+    const gen = ++usageGen;
     clearTimeout(resetTimer);
     if (!isUsageEnabled()) {
       usageItem.hide();
       return;
     }
     lastUsageFetch = Date.now();
+    const superseded = (): boolean => gen !== usageGen || !isUsageEnabled();
     let status: UsageStatus;
     try {
       const token = await readAccessToken();
+      if (superseded()) {
+        return;
+      }
       if (!token) {
         throw new Error('not signed in to Claude Code');
       }
       const usage = await fetchUsage(token);
+      if (superseded()) {
+        return;
+      }
       status = formatUsageStatus(usage, new Date());
       // Refresh right after the window resets, if that happens before the next tick.
+      // Only the latest refresh gets here, and it cleared the timer on entry,
+      // so there is never more than one.
       const untilReset = (usage.session?.resetsAt?.getTime() ?? 0) - Date.now();
       if (untilReset > 0 && untilReset < USAGE_REFRESH_MS) {
-        resetTimer = setTimeout(() => void refreshUsage(), untilReset + 5000);
+        resetTimer = setTimeout(() => void refreshUsage('auto'), untilReset + 5000);
       }
     } catch (err: unknown) {
+      if (superseded()) {
+        return;
+      }
+      if (err instanceof CredentialReadError && err.denied) {
+        usagePaused = true;
+      }
       status = formatUsageError(err instanceof Error ? err.message : String(err));
     }
     usageItem.text = status.text;
     usageItem.tooltip = status.tooltip;
     usageItem.show();
   };
-  const usageTimer = setInterval(() => void refreshUsage(), USAGE_REFRESH_MS);
 
   // At most one warning per Claude Code version; the toast is never awaited.
   const warnIfUnhealthy = async (ext: vscode.Extension<unknown>): Promise<void> => {
@@ -173,7 +211,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (e.focused) {
       refreshStatusBar();
       if (Date.now() - lastUsageFetch > 60_000) {
-        void refreshUsage();
+        void refreshUsage('auto');
       }
     }
   });
@@ -211,11 +249,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
-  const usageRefreshCmd = vscode.commands.registerCommand('bidi-usage.refresh', () => refreshUsage());
+  const usageRefreshCmd = vscode.commands.registerCommand('bidi-usage.refresh', () => refreshUsage('user'));
 
   const usageToggleCmd = vscode.commands.registerCommand('bidi-usage.toggle', async () => {
+    usageGen++; // a refresh in flight must not undo the toggle
     await context.globalState.update(USAGE_FLAG, !isUsageEnabled());
-    await refreshUsage();
+    await refreshUsage('user');
   });
 
   context.subscriptions.push(
@@ -228,10 +267,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     removeCmd,
     usageRefreshCmd,
     usageToggleCmd,
-    { dispose: () => { clearInterval(usageTimer); clearTimeout(resetTimer); } }
+    {
+      dispose: () => {
+        usageGen++;
+        clearInterval(usageTimer);
+        clearTimeout(resetTimer);
+      },
+    }
   );
 
-  void refreshUsage();
+  // Started only now that everything is registered, so a failed activation
+  // cannot leave a timer running.
+  void refreshUsage('auto');
+  usageTimer = setInterval(() => void refreshUsage('auto'), USAGE_REFRESH_MS);
 
   // The initial sync runs after everything is registered and never blocks
   // activation on a toast.
