@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="index.css">
+<style>
+/* What VS Code and Claude Code's webview template provide (Dark Modern values). */
+:root{
+--vscode-chat-font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+--vscode-chat-font-size:13px;
+--vscode-editor-font-family:Menlo,Monaco,monospace;
+--vscode-editor-font-size:12px;
+--vscode-foreground:#cccccc;
+--vscode-descriptionForeground:#9d9d9d;
+--vscode-sideBar-background:#181818;
+--vscode-editor-background:#1f1f1f;
+--vscode-input-background:#313131;
+--vscode-input-border:#3c3c3c;
+--vscode-input-foreground:#cccccc;
+--vscode-input-placeholderForeground:#989898;
+--vscode-button-background:#0078d4;
+--vscode-button-foreground:#ffffff;
+--vscode-button-hoverBackground:#026ec1;
+--vscode-focusBorder:#0078d4;
+--vscode-textPreformat-foreground:#d0d0d0;
+--vscode-textCodeBlock-background:#2b2b2b;
+--vscode-widget-border:#313131;
+--vscode-errorForeground:#f85149;
+}
+html,body{height:100%;margin:0}
+</style>
+</head>
+<body class="__THEME_CLASS__">
+<div id="root">
+<div class="root_aqhumA editorMode_aqhumA">
+<div class="sessionBody_aqhumA">
+<div class="sessionLayout_07S1Yg">
+<div class="chatContainer_07S1Yg">
+<div class="messagesContainer_07S1Yg stickyMode_07S1Yg fullEditor_07S1Yg" role="region" aria-label="Claude Code conversation" tabindex="0">
+<div class="turn_07S1Yg">
+  <div class="message_07S1Yg userMessageContainer_07S1Yg stickyHeader_07S1Yg" role="article" aria-label="You" data-transcript-message>
+    <div class="userMessageContainer_07S1Yg">
+      <div class="userMessage_07S1Yg"><div class="expandableContainer_xGDvVg"><div><div class="content_xGDvVg"><span dir="auto">להוסיף בדיקה ל-parseConfig שמכסה קובץ ריק, ולעדכן את ה-README</span></div></div></div></div>
+    </div>
+  </div>
+  <div class="message_07S1Yg timelineMessage_07S1Yg dotSuccess_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, Read" data-transcript-message>
+    <div class="toolUse_uq5aLg"><div class="root_ZUQaOA"><summary class="toolSummary_ZUQaOA"><span><span class="toolNameText_ZUQaOA">Read</span> <span class="toolNameTextSecondary_ZUQaOA">src/config.ts</span></span></summary></div></div>
+  </div>
+  <div class="message_07S1Yg timelineMessage_07S1Yg dotSuccess_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, Edit" data-transcript-message>
+    <div class="toolUse_uq5aLg"><div class="root_ZUQaOA"><summary class="toolSummary_ZUQaOA"><span><span class="toolNameText_ZUQaOA">Edit</span> <span class="toolNameTextSecondary_ZUQaOA">src/config.test.ts</span></span></summary><div class="secondaryLine_mLrg7g"><span class="content_mLrg7g">Added 6 lines</span></div></div></div>
+  </div>
+  <div class="message_07S1Yg timelineMessage_07S1Yg dotFailure_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, Bash" data-transcript-message>
+    <div class="toolUse_uq5aLg"><div class="root_ZUQaOA"><summary class="toolSummary_ZUQaOA"><span><span class="toolNameText_ZUQaOA">Bash</span> <span class="toolNameTextSecondary_ZUQaOA">npm test</span></span></summary><div class="secondaryLine_mLrg7g"><span class="content_mLrg7g">1 failing</span></div></div></div>
+  </div>
+  <div class="message_07S1Yg timelineMessage_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, thinking" data-transcript-message>
+    <details class="thinking_aHyQPQ"><summary class="thinkingSummary_aHyQPQ">Thinking</summary></details>
+  </div>
+  <div class="message_07S1Yg timelineMessage_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude" data-transcript-message>
+    <span class="root_-a7MRw"><h3>סיכום השינויים</h3><p>עדכנתי את <code>parseConfig</code> כך שקובץ ריק מחזיר את ערכי ברירת המחדל במקום לזרוק <code>TypeError</code>.</p><ul><li>הוספתי fixture של קובץ ריק</li><li>עדכנתי את ה-README עם דוגמה חדשה</li></ul><div class="codeBlockWrapper_-a7MRw"><pre><code>test('empty file → defaults', () =&gt; {
+  expect(parseConfig('')).toEqual(DEFAULTS);
+});</code></pre></div><p>רוצה שאוסיף גם מקרה של קובץ עם הערות בלבד?</p></span>
+  </div>
+  <div class="message_07S1Yg timelineMessage_07S1Yg dotSuccess_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, Bash" data-transcript-message>
+    <div class="toolUse_uq5aLg"><div class="root_ZUQaOA"><summary class="toolSummary_ZUQaOA"><span><span class="toolNameText_ZUQaOA">Bash</span> <span class="toolNameTextSecondary_ZUQaOA">npm test</span></span></summary><div class="secondaryLine_mLrg7g"><span class="content_mLrg7g">12 passing</span></div></div></div>
+  </div>
+</div>
+<div style="height:150px"></div>
+</div>
+<div class="inputContainer_07S1Yg">
+<div>
+<div class="inputWrapper_cKsPxg">
+<form>
+<fieldset class="inputContainer_cKsPxg" data-permission-mode="default">
+  <div class="inputContainerBackground_cKsPxg"></div>
+  <div class="messageInputContainer_cKsPxg">
+    <div class="messageInput_cKsPxg" contenteditable="plaintext-only" role="textbox" aria-label="Message input">כן, ואז להריץ שוב את כל הבדיקות</div>
+    <div class="mentionMirror_cKsPxg" aria-hidden="true">כן, ואז להריץ שוב את כל הבדיקות</div>
+  </div>
+  <div class="inputFooter_gGYT1w inputFooterV2_gGYT1w" data-fit-stage="0">
+    <div class="addButtonContainer_Lu5mZA"><button class="addButton_Lu5mZA" type="button" title="Add">+</button></div>
+    <button class="menuButton_gGYT1w" type="button" title="Show command menu (/)">/</button>
+    <div class="host_v41KHw"><button class="usage_P2QnnQ usageButtonV2_gGYT1w" type="button" aria-label="62% context used — click to compact">◔</button></div>
+    <div class="host_v41KHw host_a_iRsA"><span class="footerButton_gGYT1w footerButtonPrimary_gGYT1w indicator_a_iRsA" data-cache-window>4m</span></div>
+    <button class="modelPill_gGYT1w" type="button" role="combobox">Opus</button>
+    <div class="divider_gGYT1w"></div>
+    <span class="selectionChip_gGYT1w"><span class="footerButton_gGYT1w footerButtonStatic_gGYT1w">config.ts</span></span>
+    <div class="spacer_gGYT1w"></div>
+    <div class="container_8RAulQ"><button class="footerButton_gGYT1w footerButtonPrimary_gGYT1w" type="button">Edit automatically</button></div>
+    <button class="sendButton_gGYT1w" type="submit" data-permission-mode="default" aria-label="Send message">↑</button>
+  </div>
+</fieldset>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+document.fonts.ready.then(() => {
+  const q = (s) => document.querySelector(s);
+  const cs = (s) => getComputedStyle(q(s));
+  const text = '[data-testid="assistant-message"] > span[class*="root_"]';
+  const report = {
+    fontsLoaded: [...document.fonts].filter((f) => f.family.replace(/"/g, '') === 'BiDi Rubik' && f.status === 'loaded').length,
+    textFont: cs(text).fontFamily,
+    textSize: cs(text).fontSize,
+    inputFont: cs('[role="textbox"]').fontFamily,
+    inputSize: cs('[role="textbox"]').fontSize,
+    mirrorFont: cs('[class*="mentionMirror_"]').fontFamily,
+    mirrorSize: cs('[class*="mentionMirror_"]').fontSize,
+    panelBg: cs('[class*="messagesContainer_"]').backgroundColor,
+    userBg: cs('[class*="userMessage_"]').backgroundColor,
+    groupBg: cs('[aria-label="Claude, Read"]').backgroundColor,
+    turnWidth: Math.round(q('[class*="turn_"]').getBoundingClientRect().width),
+    sendSize: Math.round(q('[class*="sendButton_"]').getBoundingClientRect().width),
+    footerOrder: [...q('[class*="inputFooter_"]').children].map((el) => getComputedStyle(el).order).join(','),
+  };
+  document.body.setAttribute('data-report', JSON.stringify(report));
+});
+</script>
+</body>
+</html>

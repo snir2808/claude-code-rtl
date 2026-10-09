@@ -13,3 +13,5 @@ node_modules/**
 **/*.vsix
 **/*.vsix.zip
 package-lock.json
+scripts/**
+fixture-out/**
