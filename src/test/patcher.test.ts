@@ -40,8 +40,31 @@ suite('patcher — pure functions', () => {
     assert.strictEqual(restored, FAKE_CSS);
   });
 
+  test('removeCssPatchFromContent removes every block', () => {
+    const block = '\n/* bidi-rtl-patch-start */\n.x{}\n/* bidi-rtl-patch-end */';
+    const restored = removeCssPatchFromContent(FAKE_CSS + block + block);
+    assert.strictEqual(restored, FAKE_CSS);
+  });
+
   test('removeCssPatchFromContent is safe on unpatched CSS', () => {
     const result = removeCssPatchFromContent(FAKE_CSS);
     assert.strictEqual(result, FAKE_CSS);
+  });
+});
+
+suite('patcher — CSS content', () => {
+  test('patched output contains a literal backslash before 2022', () => {
+    const patched = applyCssPatchToContent(FAKE_CSS);
+    assert.ok(patched.includes('\\2022'), 'expected 5-char sequence \\2022');
+    assert.ok(!patched.includes('\\\\2022'), 'backslash must not be doubled');
+  });
+
+  test('patch uses text-align:start and keeps the markers first/last', () => {
+    const patched = applyCssPatchToContent(FAKE_CSS);
+    const block = patched.slice(FAKE_CSS.length + 1);
+    assert.ok(block.startsWith('/* bidi-rtl-patch-start */'));
+    assert.ok(block.endsWith('/* bidi-rtl-patch-end */'));
+    assert.ok(patched.includes('[role="textbox"][aria-label="Message input"]'));
+    assert.ok(patched.includes('text-align:start;'));
   });
 });

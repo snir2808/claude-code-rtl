@@ -1,53 +1,62 @@
 import * as fs from 'fs';
 
-// Hash-stable selectors:
-// - chat input: identified by role + aria-label (no hashed class needed)
-// - messages list: matched by [class*="messagesContainer_"] prefix so the
-//   hash suffix (e.g. _07S1Yg) can change between Claude Code releases
-//   without breaking the patch.
-//
-// LTR exclusions: buttons, code blocks, and tool-use blocks must stay LTR
-// even inside the RTL container — these are technical/UI elements, not
-// natural-language text.
+// Hash-stable selectors: Claude Code's class names carry a build hash suffix
+// (e.g. messagesContainer_07S1Yg), so everything is matched by
+// [class*="prefix_"]. The chat input is matched by role + aria-label.
 const CSS_PATCH = [
   '/* bidi-rtl-patch-start */',
-  '/* Auto-RTL for the Claude Code conversation panel.',
-  '   Selectors use [class*="prefix_"] so the hash suffix (e.g. _07S1Yg) can',
-  '   change between releases without breaking the patch. Technical/UI elements',
-  '   (code, tool-use, buttons, inputs) are forced back to LTR. */',
-  '',
-  '/* Conversation + message containers: right-to-left, right-aligned. */',
-  '[class*="chatContainer_"],',
-  '[class*="messagesContainer_"],',
-  '[class*="userMessageContainer_"],',
-  '[class*="userMessage_"] {',
-  '  direction: rtl;',
-  '  text-align: right;',
+  '/* Input: RTL base direction. unicode-bidi is intentionally NOT set so',
+  '   Claude Code\'s native `plaintext` on the input keeps working. */',
+  '[role="textbox"][aria-label="Message input"],',
+  '[class*="mentionMirror_"]{',
+  'direction:rtl;',
+  'text-align:start;',
   '}',
-  '',
-  '/* The message input itself. */',
-  'textarea[aria-label="Message input"],',
-  '[class*="inputContainer_"] {',
-  '  direction: rtl;',
-  '  text-align: right;',
+  '/* Conversation: RTL container. text-align:start (not right) lets Claude',
+  '   Code\'s per-paragraph unicode-bidi:plaintext put Hebrew paragraphs on the',
+  '   right and English ones on the left. */',
+  '[class*="messagesContainer_"]{',
+  'direction:rtl;',
+  'text-align:start;',
+  'unicode-bidi:isolate;',
   '}',
-  '',
-  '/* Keep technical content strictly LTR even inside an RTL container:',
-  '   code blocks, tool-use blocks, and anything monospace/pre. */',
-  '[class*="codeBlock"],',
-  '[class*="toolUse_"],',
-  '[class*="markdown_preview"] pre,',
-  '[class*="markdown_preview"] code,',
-  'pre, code, kbd, samp {',
-  '  direction: ltr;',
-  '  text-align: left;',
-  '  unicode-bidi: isolate;',
+  '[class*="messagesContainer_"] [class*="userMessage_"]{',
+  'unicode-bidi:plaintext;',
+  'text-align:start;',
   '}',
-  '',
-  '/* Buttons and icon controls should not inherit RTL flow. */',
-  '[class*="chatContainer_"] button,',
-  '[class*="messagesContainer_"] button {',
-  '  direction: ltr;',
+  '/* Markdown lists are class-less; Claude Code UI lists (todos, tool calls)',
+  '   always have classes, so :not([class]) targets only message lists. */',
+  '[class*="messagesContainer_"] ol:not([class]),',
+  '[class*="messagesContainer_"] ul:not([class]){',
+  'padding-inline:1em;',
+  '}',
+  '/* Inside markers + unicode-bidi:normal make each marker follow its item\'s language. */',
+  '[class*="messagesContainer_"] ol:not([class])>li:not([class]),',
+  '[class*="messagesContainer_"] ul:not([class])>li:not([class]){',
+  'list-style-position:inside;',
+  '}',
+  '[class*="messagesContainer_"] ol:not([class])>li:not([class])::marker,',
+  '[class*="messagesContainer_"] ul:not([class])>li:not([class])::marker{',
+  'unicode-bidi:normal;',
+  '}',
+  '[class*="messagesContainer_"] ul:not([class])>li:not([class])::marker{',
+  'content:"\\2022  ";',
+  '}',
+  '/* Buttons, tool blocks, editors and code stay LTR. */',
+  '[class*="messagesContainer_"] [class*="button_"],',
+  '[class*="messagesContainer_"] [class*="sendButton_"],',
+  '[class*="messagesContainer_"] [class*="toolUse_"],',
+  '[class*="messagesContainer_"] [class*="toolResult_"],',
+  '[class*="messagesContainer_"] [class*="toolReference_"],',
+  '[class*="messagesContainer_"] [class*="diffEditor"],',
+  '[class*="messagesContainer_"] [class*="codeInput_"],',
+  '[class*="messagesContainer_"] [class*="editorMode_"],',
+  '[class*="messagesContainer_"] [class*="editing_"],',
+  '[class*="messagesContainer_"] pre,',
+  '[class*="messagesContainer_"] code{',
+  'direction:ltr;',
+  'text-align:left;',
+  'unicode-bidi:isolate;',
   '}',
   '/* bidi-rtl-patch-end */',
 ].join('\n');
@@ -65,9 +74,23 @@ export function applyCssPatchToContent(content: string): string {
 
 export function removeCssPatchFromContent(content: string): string {
   return content.replace(
-    /\n?\/\* bidi-rtl-patch-start \*\/[\s\S]*?\/\* bidi-rtl-patch-end \*\//,
+    /\n?\/\* bidi-rtl-patch-start \*\/[\s\S]*?\/\* bidi-rtl-patch-end \*\//g,
     ''
   );
+}
+
+// Write to a temp file in the same directory, then rename over the target, so
+// a concurrent reader never sees a truncated file.
+async function writeFileAtomic(cssPath: string, content: string): Promise<void> {
+  const tmpPath = `${cssPath}.bidi-rtl-tmp-${process.pid}`;
+  try {
+    const { mode } = await fs.promises.stat(cssPath);
+    await fs.promises.writeFile(tmpPath, content, { encoding: 'utf8', mode });
+    await fs.promises.rename(tmpPath, cssPath);
+  } catch (err) {
+    await fs.promises.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
 }
 
 export async function applyCssPatch(cssPath: string): Promise<boolean> {
@@ -79,7 +102,7 @@ export async function applyCssPatch(cssPath: string): Promise<boolean> {
   if (patched === content) {
     return false;
   }
-  await fs.promises.writeFile(cssPath, patched, 'utf8');
+  await writeFileAtomic(cssPath, patched);
   return true;
 }
 
@@ -88,6 +111,6 @@ export async function removeCssPatch(cssPath: string): Promise<boolean> {
   if (!isCssPatched(content)) {
     return false;
   }
-  await fs.promises.writeFile(cssPath, removeCssPatchFromContent(content), 'utf8');
+  await writeFileAtomic(cssPath, removeCssPatchFromContent(content));
   return true;
 }

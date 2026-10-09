@@ -10,37 +10,45 @@ extension fixes that at the source.
 
 ## What it does
 
-It patches the CSS of the Claude Code webview to set `direction: rtl` on the conversation panel.
-That's it — no telemetry, no network calls, no settings to configure. It just makes the panel
-bidi-aware.
+It patches the CSS of the Claude Code webview so mixed Hebrew/English conversations read naturally:
+
+- Hebrew paragraphs align right, English paragraphs align left.
+- Lists follow the language of each item.
+- Code, tool calls, diffs and buttons stay LTR.
+
+No telemetry, no network calls, no settings to configure.
 
 ## Install
 
 This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 
-1. Download `vscode-bidi-rtl-0.0.1.vsix` from the [latest release](../../releases/latest).
+1. Download `vscode-bidi-rtl-0.0.3.vsix` from the [latest release](../../releases/latest).
 2. In VS Code: **Extensions** panel → `…` menu → **Install from VSIX…** → pick the file.
    Or from the terminal:
    ```bash
-   code --install-extension vscode-bidi-rtl-0.0.1.vsix
+   code --install-extension vscode-bidi-rtl-0.0.3.vsix
    ```
-3. Run the command **`BiDi RTL: Apply RTL Patch to Claude Code`** from the Command Palette
-   (`Cmd/Ctrl+Shift+P`), then reload the Claude Code panel.
+3. Reload the window. The patch is applied automatically on startup.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `BiDi RTL: Apply RTL Patch to Claude Code` | Applies the RTL patch and reloads the window. |
-| `BiDi RTL: Remove RTL Patch` | Reverts the patch. **Run this before uninstalling.** |
+| `BiDi RTL: Toggle RTL On/Off` | Turns RTL on or off (remembered across restarts). Also available as the **RTL** button in the status bar. |
+| `BiDi RTL: Apply RTL Patch to Claude Code` | Applies the patch and turns RTL on. |
+| `BiDi RTL: Remove RTL Patch` | Removes the patch and turns RTL off. |
 
 ## How it works
 
-Claude Code renders its conversation in a VS Code webview. This extension locates that webview's
-CSS and injects a small RTL rule. The patch is applied to files under the VS Code app root, so:
+Claude Code renders its conversation in a webview. This extension appends a small, clearly
+marked CSS block to that webview's `index.css`.
 
-- It survives reloads, but a **Claude Code update may overwrite it** — just run *Apply* again.
-- Always run **Remove** before uninstalling, so you leave the CSS clean.
+- It is re-applied automatically after a Claude Code update.
+- Uninstalling the extension removes the patch by itself — no need to run *Remove* first. The
+  cleanup runs the next time VS Code fully restarts after the uninstall, because that is when
+  VS Code runs uninstall hooks.
+- *Disabling* the extension (as opposed to uninstalling it) keeps the patch, so use the RTL
+  toggle to turn it off.
 
 ## Build from source
 

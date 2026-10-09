@@ -48,4 +48,22 @@ suite('patcher — file I/O', () => {
     const content = await fs.promises.readFile(tmpFile, 'utf8');
     assert.strictEqual(content, FAKE_CSS);
   });
+
+  test('apply and remove leave no temp files behind', async () => {
+    await applyCssPatch(tmpFile);
+    await removeCssPatch(tmpFile);
+    const leftovers = (await fs.promises.readdir(os.tmpdir()))
+      .filter((f) => f.startsWith(path.basename(tmpFile) + '.bidi-rtl-tmp'));
+    assert.deepStrictEqual(leftovers, []);
+  });
+
+  test('applyCssPatch migrates an old-format block to exactly one new block', async () => {
+    const old = FAKE_CSS + '\n/* bidi-rtl-patch-start */\n.old{direction:rtl}\n/* bidi-rtl-patch-end */';
+    await fs.promises.writeFile(tmpFile, old, 'utf8');
+    assert.strictEqual(await applyCssPatch(tmpFile), true);
+    const content = await fs.promises.readFile(tmpFile, 'utf8');
+    assert.strictEqual(content.split('/* bidi-rtl-patch-start */').length - 1, 1);
+    assert.ok(!content.includes('.old{'));
+    assert.ok(content.includes('messagesContainer_'));
+  });
 });
