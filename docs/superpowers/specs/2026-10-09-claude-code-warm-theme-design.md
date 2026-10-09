@@ -43,8 +43,9 @@ Mapped from `webview/index.js` and `webview/index.css` on 2026-10-09. The hash s
 
 - **CSP:** `font-src` allows only the extension's own `webview/` and `resources/` folders — no remote fonts and no `data:` fonts.
 - **Theme classes:** VS Code puts `vscode-light`, `vscode-dark` or `vscode-high-contrast` on the webview `<body>`. Claude Code's CSS treats dark as the default and only overrides for `.vscode-light` and `.vscode-high-contrast[-light]`.
-- **Tokens:** the `--app-*` tokens are defined on `html`, except `--app-root-background`, which is set on the root element (`#root > [class*="root_"]`, a different value in editor mode).
-- **Chat font:** the extension injects `--vscode-chat-font-family` and `--vscode-chat-font-size` on `:root` from VS Code's `chat.fontFamily` / `chat.fontSize`.
+- **Tokens:** the `--app-*` tokens are defined on `html`. A token that `html` derives from another one (`--app-accent-color: var(--app-button-background)`, the three pill tokens, `--app-inline-code-foreground`) is computed on `html`, so overriding only its base token lower in the tree does not change it.
+- **Backgrounds:** the sidebar paints the conversation with `--app-primary-background`. The editor tab (`.fullEditor_`, `.editorMode_`) paints the conversation, the bottom fade, the sticky headers and the root with `--app-secondary-background`. `--app-root-background` is derived from those two on the root element itself.
+- **Chat font:** the extension injects `--vscode-chat-font-family` and `--vscode-chat-font-size` on `:root` from VS Code's `chat.fontFamily` / `chat.fontSize`. Claude Code's CSS consumes them on `body` (`font-family`, `font-size` with a 13px fallback) and on `button` and some menus; everything else inherits from `body`.
 - **Conversation:** `[class*="messagesContainer_"]` (scroll container, flex column) > `[class*="turn_"]` per prompt > rows.
   - A user row is `[class*="userMessageContainer_"][class*="message_"]`; its bubble is `[class*="userMessage_"]`, full width in Claude Code's always-on sticky mode.
   - Every assistant content block is its own sibling row `[data-testid="assistant-message"]`. Its `aria-label` is `Claude` (text), `Claude, thinking`, or `Claude, <Tool>`. Nothing wraps consecutive tool calls.
@@ -141,12 +142,11 @@ Everything below is scoped under `body.vscode-dark`. Contrast ratios are WCAG 2.
 
 ### Palette (token overrides)
 
-Tokens are overridden on `body.vscode-dark` (closer than `html`, so descendants inherit the new values). `--app-root-background` is overridden on `body.vscode-dark #root > [class*="root_"]`, where Claude Code sets it.
+Tokens are overridden on `body.vscode-dark` (closer than `html`, so descendants inherit the new values). Derived tokens the design needs are overridden directly. `--app-plan-mode-color` is deliberately left alone: it keeps VS Code's button color, so plan mode stays distinct from the orange accent.
 
 | Role | Tokens | Value | Contrast |
 |---|---|---|---|
-| Panel background | `--app-primary-background`, `--app-root-background`, `--app-header-background` | `#1b1a18` | — |
-| Surfaces | `--app-secondary-background` | `#211f1c` | — |
+| Panel background | `--app-primary-background`, `--app-secondary-background`, `--app-header-background` | `#1b1a18` | — |
 | Text | `--app-primary-foreground` | `#ebe5da` | 13.9:1 on panel |
 | Secondary text | `--app-secondary-foreground` | `#a39d92` | 6.5:1 on panel |
 | Disabled text | `--app-disabled-foreground` | `#7d766a` | 3.9:1 (exempt) |
@@ -167,12 +167,12 @@ Tokens are overridden on `body.vscode-dark` (closer than `html`, so descendants 
 | Pills | `--app-pill-background` / `--app-pill-foreground` / `--app-pill-hover-background` | `#2f2b26` / `#ddd4c6` / `#38332c` | 9.6:1 |
 | Success | `--app-success-foreground` | `#a8c792` | 8.8:1 on surfaces |
 
-Tokens not listed keep Claude Code's values. In particular `--app-claude-clay-button-orange` (`#c6613f`) and `--app-claude-ivory` stay, so the send button keeps a 3.85:1 icon; the mockup's lighter `#d97757` behind the ivory icon would be 2.96:1. Global corner-radius tokens stay; radii are set per component below. The timeline status dots keep their hardcoded colors.
+Both background tokens get the panel color, so the sidebar and the editor tab look the same; the activity-group surface `#211f1c` comes from its component rule, not from a token. Tokens not listed keep Claude Code's values. In particular `--app-claude-clay-button-orange` (`#c6613f`) and `--app-claude-ivory` stay, so the send button keeps a 3.85:1 icon; the mockup's lighter `#d97757` behind the ivory icon would be 2.96:1. Global corner-radius tokens stay; radii are set per component below. The timeline status dots keep their hardcoded colors.
 
 ### Typography
 
 - `--vscode-chat-font-family: "BiDi Rubik", -apple-system, BlinkMacSystemFont, system-ui, sans-serif` and `--vscode-chat-font-size: 15px`, overridden on `body.vscode-dark`. Both input layers inherit them, so the caret stays aligned.
-- Verification step: in the fixture, assistant text and both input layers must compute to 15px "BiDi Rubik". If a consumer does not read the variables, add `font-size: var(--vscode-chat-font-size)` on `[class*="messagesContainer_"]` and on `fieldset[class*="inputContainer_"]` (both input layers inherit from it) — never on one input layer alone.
+- Because `body` itself consumes the variables, overriding them on `body.vscode-dark` resizes everything that inherits from it. Verification step: in the fixture, assistant text and both input layers must compute to 15px "BiDi Rubik". If they don't, add `font-family: var(--vscode-chat-font-family); font-size: var(--vscode-chat-font-size)` on `[class*="messagesContainer_"]` and on `fieldset[class*="inputContainer_"]` (both input layers inherit from it) — never on one input layer alone.
 - `@font-face` "BiDi Rubik": two faces (Hebrew subset, Latin subset) with their `unicode-range`, `font-weight: 300 900`, `font-display: swap`, and `src: url("bidi-theme-rubik-<subset>.woff2") format("woff2")`. The URL resolves next to `index.css`, which the CSP allows.
 - Assistant markdown (`[data-testid="assistant-message"] > span[class*="root_"]`): line height 1.75; 12px between paragraphs; `h1`/`h2`/`h3` at 20/18/16px, weight 600, color `#f5f0e8`; list markers `#d97757` (color only — marker layout stays with the RTL module).
 - Code, inline and in blocks, keeps the editor font (`--app-monospace-font-family`). Code blocks (`[class*="codeBlockWrapper_"] > pre`) get a 12px radius and 12px 16px padding.
@@ -189,7 +189,7 @@ Tokens not listed keep Claude Code's values. In particular `--app-claude-clay-bu
 
 **Activity groups (tool and thinking rows).** An activity row (ACT below) is `[data-testid="assistant-message"][aria-label^="Claude, "]`. It is attribute-only, so it can sit inside `:has()` without nesting `:has()`.
 
-- Every ACT row: background `#211f1c`, 1px `#2b2824` side borders, 12.5px text in `#968f83` (5.1:1). The tool name (`[class*="toolNameText_"]`) is `#cfc6b7` (9.7:1), weight 600.
+- Every ACT row: background `#211f1c`, 1px `#2b2824` side borders, 12px right padding, 12.5px text in `#968f83` (5.1:1). The tool name (`[class*="toolNameText_"]`) is `#cfc6b7` (9.7:1), weight 600.
 - First of a run (`ACT:not(ACT + ACT)`): top border, 12px top corners, 4px top margin.
 - Last of a run (`ACT:not(:has(+ ACT))`): bottom border, 12px bottom corners, 12px bottom margin.
 - A row that is both first and last gets all four corners.
@@ -200,6 +200,7 @@ Tokens not listed keep Claude Code's values. In particular `--app-claude-clay-bu
 
 - Box: `body.vscode-dark fieldset[class*="inputContainer_"] { --corner-radius-large: 16px }`. The background layer inherits the same radius, and colors come from the tokens. The existing `:focus-within` rules keep their permission-mode ring colors.
 - Text layers: no padding or position changes, so the placeholder's physical offsets stay correct.
+- The footer gets a 6px gap between items.
 - Footer buttons — add (`button[title="Add"]`), command menu (`[class*="menuButton_"]`), `[class*="footerButton_"]` and pills (`[class*="modelPill_"]`): min-height 28px, padding 0 10px, radius 9px, 12.5px text. Filled `#2f2b26` with `#ddd4c6` text (9.6:1). The mode selector and the model pill use a ghost style instead: transparent fill and a 1px `#453e35` border.
 - Order (`order` on direct children of `[class*="inputFooter_"]`):
 
