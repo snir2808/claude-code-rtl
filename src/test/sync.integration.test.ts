@@ -41,14 +41,19 @@ suite('sync — syncInstall (file I/O)', () => {
     await fs.promises.rm(tmp, { recursive: true, force: true });
   });
 
+  async function assertFontsCopied(): Promise<void> {
+    for (const asset of THEME.assets) {
+      const copied = await fs.promises.readFile(path.join(claudeDir, 'webview', asset.target));
+      assert.ok(copied.equals(await fs.promises.readFile(path.join(extRoot, asset.source))), asset.target);
+    }
+  }
+
   test('enabling both writes both blocks and copies the fonts', async () => {
     const result = await syncInstall(claudeDir, extRoot, on('theme', 'rtl'));
     assert.deepStrictEqual(result, { cssChanged: true, assetErrors: [] });
     const expected = appendBlock(appendBlock(ORIGINAL, THEME.markers, THEME_BODY), RTL.markers, RTL_BODY);
     assert.strictEqual(await fs.promises.readFile(cssPath, 'utf8'), expected);
-    for (const target of fontTargets) {
-      assert.ok(fs.existsSync(target), target);
-    }
+    await assertFontsCopied();
   });
 
   test('a second sync changes nothing', async () => {
@@ -81,6 +86,50 @@ suite('sync — syncInstall (file I/O)', () => {
     );
   });
 
+  test('a font of the same size but different bytes is copied again', async () => {
+    await syncInstall(claudeDir, extRoot, on('theme'));
+    const asset = THEME.assets[0];
+    const source = path.join(extRoot, asset.source);
+    const before = await fs.promises.readFile(source);
+    await write(source, Buffer.from(before.toString('latin1').toUpperCase(), 'latin1'));
+    assert.strictEqual((await fs.promises.stat(source)).size, before.length);
+    await syncInstall(claudeDir, extRoot, on('theme'));
+    await assertFontsCopied();
+  });
+
+  test('a font that is already there is not written again', async () => {
+    await syncInstall(claudeDir, extRoot, on('theme'));
+    const past = new Date('2020-01-01T00:00:00Z');
+    for (const target of fontTargets) {
+      await fs.promises.utimes(target, past, past);
+    }
+    await syncInstall(claudeDir, extRoot, on('theme'));
+    for (const target of fontTargets) {
+      assert.strictEqual((await fs.promises.stat(target)).mtime.getTime(), past.getTime(), target);
+    }
+  });
+
+  test('a font that cannot be deleted is reported, and the CSS is still synced', async () => {
+    await syncInstall(claudeDir, extRoot, on('theme', 'rtl'));
+    await fs.promises.rm(fontTargets[0]);
+    await fs.promises.mkdir(fontTargets[0]); // a folder in its place cannot be removed as a file
+    const result = await syncInstall(claudeDir, extRoot, on('rtl'));
+    assert.strictEqual(result.cssChanged, true);
+    assert.strictEqual(result.assetErrors.length, 1);
+    assert.ok(result.assetErrors[0].startsWith(THEME.assets[0].target), result.assetErrors[0]);
+    assert.strictEqual(await fs.promises.readFile(cssPath, 'utf8'), appendBlock(ORIGINAL, RTL.markers, RTL_BODY));
+    assert.ok(!fs.existsSync(fontTargets[1]), fontTargets[1]);
+  });
+
+  test('fonts of a disabled theme are deleted only once the CSS no longer uses them', async () => {
+    await syncInstall(claudeDir, extRoot, on('theme', 'rtl'));
+    // A folder where writeFileAtomic puts its temp file makes the CSS write fail.
+    await fs.promises.mkdir(`${cssPath}.bidi-rtl-tmp-${process.pid}`);
+    await assert.rejects(syncInstall(claudeDir, extRoot, on('rtl')));
+    assert.ok((await fs.promises.readFile(cssPath, 'utf8')).includes(THEME.markers.start));
+    await assertFontsCopied();
+  });
+
   test('a missing font is reported, and the CSS is still synced', async () => {
     await fs.promises.rm(path.join(extRoot, THEME.assets[0].source));
     const result = await syncInstall(claudeDir, extRoot, on('theme'));
@@ -108,6 +157,6 @@ suite('sync — syncInstall (file I/O)', () => {
 
   test('rejects when Claude Code has no index.css', async () => {
     await fs.promises.rm(cssPath);
-    await assert.rejects(syncInstall(claudeDir, extRoot, on('rtl')));
+    await assert.rejects(syncInstall(claudeDir, extRoot, on('rtl')), { code: 'ENOENT' });
   });
 });
