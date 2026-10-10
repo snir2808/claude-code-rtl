@@ -187,8 +187,8 @@ function check(mode, r) {
     expect(r.panelBg === 'rgb(27, 26, 24)', `panel background: ${r.panelBg}`);
     expect(r.userBg === 'rgb(38, 35, 32)', `user message background: ${r.userBg}`);
     expect(r.groupBg === 'rgb(33, 31, 28)', `tool group background: ${r.groupBg}`);
-    expect(r.turnWidth === 680, `turn width: ${r.turnWidth} (want 680)`);
-    expect(r.inputBoxWidth === r.turnWidth, `input box width: ${r.inputBoxWidth} (want the column's ${r.turnWidth})`);
+    expect(r.turnWidth === r.messagesContentWidth && r.turnWidth > 680, `turn width: ${r.turnWidth} (want the full ${r.messagesContentWidth})`);
+    expect(r.inputBoxWidth === 680, `input box width: ${r.inputBoxWidth} (want Claude Code's native 680)`);
     expect(r.sendSize === 34, `send button: ${r.sendSize}px`);
     expect(r.footerOrder === '0,0,2,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
     expect(r.coldCacheColor === 'rgb(248, 81, 73)', `cold cache timer: ${r.coldCacheColor} (want the error color)`);
@@ -215,7 +215,6 @@ function check(mode, r) {
     expect(r.panelBg !== 'rgb(27, 26, 24)', 'light theme uses the theme panel color');
     expect(r.userBg !== 'rgb(38, 35, 32)', 'light theme uses the theme user-message color');
     expect(r.groupBg !== 'rgb(33, 31, 28)', 'light theme uses the theme tool-group color');
-    expect(r.turnWidth !== 680, 'light theme uses the theme reading column');
     expect(r.sendSize !== 34, `light theme uses the theme send button: ${r.sendSize}px`);
     expect(/^0(,0)*$/.test(r.footerOrder), `footer order: ${r.footerOrder} (want all 0)`);
     expect(r.pie.radius !== '9px' && r.rowPill.radius !== '9px', 'light theme uses the theme footer buttons');

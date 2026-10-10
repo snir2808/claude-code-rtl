@@ -161,6 +161,11 @@ document.fonts.ready.then(() => {
     userBg: cs('[class*="userMessage_"]').backgroundColor,
     groupBg: cs('[aria-label="Claude, Read"]').backgroundColor,
     turnWidth: Math.round(q('[class*="turn_"]').getBoundingClientRect().width),
+    messagesContentWidth: (() => {
+      const mc = q('[class*="messagesContainer_"]');
+      const mcs = getComputedStyle(mc);
+      return Math.round(mc.clientWidth - parseFloat(mcs.paddingLeft) - parseFloat(mcs.paddingRight));
+    })(),
     inputBoxWidth: Math.round(q('fieldset[class*="inputContainer_"]').getBoundingClientRect().width),
     sendSize: Math.round(q('[class*="sendButton_"]').getBoundingClientRect().width),
     footerOrder: [...q('[class*="inputFooter_"]').children].map((el) => getComputedStyle(el).order).join(','),

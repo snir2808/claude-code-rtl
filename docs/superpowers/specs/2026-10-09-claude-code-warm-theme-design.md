@@ -23,7 +23,7 @@ A fixed reskin of the Claude Code webview — "Warm reading" — shipped as a se
 
 | Topic | Decision |
 |---|---|
-| Visual direction | A, "calm reading": warm dark palette, 15px text, 1.75 line height, centered reading column |
+| Visual direction | A, "calm reading": warm dark palette, 15px text, 1.75 line height, full-width messages |
 | Input box | A1, "single tidy row": 28px filled buttons, actions left / status right, 34px round send |
 | Font | Rubik (SIL OFL 1.1), bundled with the extension |
 | Themes | Dark themes only (`body.vscode-dark`); light and high-contrast untouched |
@@ -183,7 +183,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 
 ### Layout
 
-- **Reading column:** direct children of `[class*="messagesContainer_"]` get `max-width: 680px; width: 100%; margin-inline: auto`. 680px is Claude Code's composer max-width, so messages and composer share one centered column in an editor tab; in a narrow sidebar the column is simply full width.
+- **Width:** messages use the panel's full width, as in Claude Code's default; the composer keeps Claude Code's native centered 680px. (Changed on 2026-10-10 at the user's request: the first version had a 680px reading column for the messages too.)
 
 ### Components
 
@@ -266,7 +266,7 @@ A `--require` hook (`out/test/setup.js`) maps `require('vscode')` to a small fak
 ### Visual
 
 - A fixture page reproduces the DOM shapes above: a user row, assistant text, a run of tool rows with success and failure dots, a thinking row, a tool row that also holds an empty text block, and the composer with its footer, plus a second composer with the states one footer cannot show at once (a cold cache timer, a send button whose permission mode the page switches, and the model pill on its own row). It loads Claude Code's real `index.css` with the synced blocks and is rendered in headless Chrome. Before rendering, every class in the page must exist in that `index.css`.
-- Screenshot it with `<body class="vscode-dark">` and compare against the mockup; checks include the 680px column matching the input box, the flat cache timer (error color when cold) and selection chip, the per-mode send colors, and the ghost model pill and context pie. Then with `vscode-light`, which keeps the Dark Modern variables and so checks scoping only: no theme font, colors, sizes, column or footer order.
+- Screenshot it with `<body class="vscode-dark">` and compare against the mockup; checks include full-width messages with the input box at its native 680px, the flat cache timer (error color when cold) and selection chip, the per-mode send colors, and the ghost model pill and context pie. Then with `vscode-light`, which keeps the Dark Modern variables and so checks scoping only: no theme font, colors, sizes or footer order.
 
 ### Manual (VS Code Insiders, by the user)
 

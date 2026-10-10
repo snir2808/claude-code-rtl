@@ -74,14 +74,6 @@ body.vscode-dark{
 --vscode-chat-font-size:15px;
 }
 
-/* Reading column: the conversation shares the composer's 680px column. */
-body.vscode-dark [class*="messagesContainer_"]>*{
-max-width:680px;
-width:100%;
-margin-inline:auto;
-box-sizing:border-box;
-}
-
 /* Your messages: a soft block with an accent bar where the text starts. */
 body.vscode-dark [class*="userMessage_"]{
 background:#262320;

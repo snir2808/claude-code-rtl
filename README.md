@@ -21,7 +21,6 @@ extension fixes that at the source.
 ### Theme (dark themes only)
 
 - A warm palette that meets WCAG AA contrast, with 15px Rubik text and roomier line spacing.
-- One centered 680px reading column when Claude Code is open in an editor tab.
 - Your messages as soft blocks; tool calls grouped into quiet boxes.
 - A roomier input box: bigger buttons, actions on the left, status on the right.
 
