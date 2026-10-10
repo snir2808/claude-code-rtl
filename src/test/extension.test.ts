@@ -349,6 +349,42 @@ suite('extension — activate()', () => {
       assert.strictEqual(usage.reads, 0);
     });
 
+    test('an unfocused window does not ask; it waits for focus and checks again', async () => {
+      await installClaudeCode('2.1.287');
+      await fake.focus(false);
+      const context = await start();
+      assert.deepStrictEqual(prompts(), [], 'no question from a window nobody is looking at');
+      assert.strictEqual(context.globalState.get('bidiUsage.prompted'), undefined);
+
+      await fake.focus(true);
+      await flush();
+      assert.strictEqual(prompts().length, 1);
+      await fake.focus(false);
+      await fake.focus(true);
+      await flush();
+      assert.strictEqual(prompts().length, 1, 'only the first focus asks');
+    });
+
+    test('a window that gets focus after another one asked does not ask again', async () => {
+      await installClaudeCode('2.1.287');
+      await fake.focus(false);
+      const context = await start();
+      await context.globalState.update('bidiUsage.prompted', true); // the other window asked meanwhile
+      await fake.focus(true);
+      await flush();
+      assert.deepStrictEqual(prompts(), []);
+    });
+
+    test('a window closed before it gets focus never asks', async () => {
+      await installClaudeCode('2.1.287');
+      await fake.focus(false);
+      const context = await start();
+      stop(context);
+      await fake.focus(true);
+      await flush();
+      assert.deepStrictEqual(prompts(), []);
+    });
+
     test('Enable turns it on and shows it', async () => {
       await installClaudeCode('2.1.287');
       fake.answer((message) => (message.items.includes('Enable') ? 'Enable' : undefined));
@@ -386,6 +422,31 @@ suite('extension — activate()', () => {
       await start(new Memento({ [USAGE_FLAG]: false }));
       assert.deepStrictEqual(prompts(), []);
       assert.strictEqual(usage.reads, 1);
+    });
+
+    test('refreshing while the clock is off offers to turn it on', async () => {
+      await installClaudeCode('2.1.287');
+      const context = await start(new Memento({ [USAGE_FLAG]: false }));
+      const offers = (): FakeMessage[] => fake.messages.filter((m) => m.text === 'The session clock is off.');
+      await commands.executeCommand('bidi-usage.refresh');
+      assert.strictEqual(offers().length, 1);
+      assert.strictEqual(offers()[0].kind, 'info');
+      assert.deepStrictEqual(offers()[0].items, ['Turn on']);
+      assert.strictEqual(usage.reads, 0, 'nothing is read until the user agrees');
+
+      fake.answer((message) => (message.items.includes('Turn on') ? 'Turn on' : undefined));
+      await commands.executeCommand('bidi-usage.refresh');
+      await flush();
+      assert.strictEqual(context.globalState.get(USAGE_FLAG), true);
+      assert.strictEqual(usage.reads, 1);
+      assert.strictEqual(clockItem().text, '$(watch) 11:00 · 42%');
+    });
+
+    test('the offer to turn the clock on never blocks the command', async () => {
+      await installClaudeCode('2.1.287');
+      await start(new Memento({ [USAGE_FLAG]: false }));
+      fake.answer(() => new Promise<undefined>(() => undefined)); // never answered
+      await commands.executeCommand('bidi-usage.refresh'); // would hang if it awaited the toast
     });
 
     test('the 5-minute refresh runs only in the focused window', async () => {

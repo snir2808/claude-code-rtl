@@ -56,6 +56,21 @@ suite('usage — parse', () => {
     assert.deepStrictEqual(parseUsage({ seven_day: weekly }), { session: null, weekly: { utilization: 31, resetsAt: null } });
   });
 
+  test('an idle session window (utilization and reset both null) means no active window', () => {
+    const weekly = { utilization: 31, resets_at: null };
+    assert.deepStrictEqual(parseUsage({ five_hour: { utilization: null, resets_at: null }, seven_day: weekly }), {
+      session: null,
+      weekly: { utilization: 31, resetsAt: null },
+    });
+    assert.deepStrictEqual(parseUsage({ five_hour: { utilization: null, resets_at: null } }), {
+      session: null,
+      weekly: null,
+    });
+    // Only both-null is idle; a half-null window is still malformed.
+    assert.strictEqual(parseUsage({ five_hour: { utilization: null, resets_at: '2026-10-09T14:42:00.000Z' } }), null);
+    assert.strictEqual(parseUsage({ five_hour: { utilization: null } }), null);
+  });
+
   test('unrelated bodies are rejected', () => {
     assert.strictEqual(parseUsage({ error: 'nope' }), null);
     assert.strictEqual(parseUsage('five_hour'), null);

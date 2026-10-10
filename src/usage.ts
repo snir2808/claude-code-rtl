@@ -45,6 +45,19 @@ function parseWindow(raw: unknown): UsageWindow | null {
   return Number.isFinite(time) ? { utilization, resetsAt: new Date(time) } : null;
 }
 
+function isAbsent(raw: unknown): boolean {
+  return raw === null || raw === undefined;
+}
+
+/** A window object whose utilization and resets_at are both null: nothing is running. */
+function isIdleWindow(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') {
+    return false;
+  }
+  const { utilization, resets_at: resetsAt } = raw as { utilization?: unknown; resets_at?: unknown };
+  return utilization === null && resetsAt === null;
+}
+
 /** Reads the usage endpoint's body; the windows sit at the top level or under rate_limits. */
 export function parseUsage(body: unknown): Usage | null {
   if (!body || typeof body !== 'object') {
@@ -60,8 +73,9 @@ export function parseUsage(body: unknown): Usage | null {
   // A session window that is there but cannot be read makes the response
   // unexpected; it is not "no active window". A malformed weekly window is
   // only dropped.
+  // An idle window (utilization and resets_at both null) is "no active window".
   const session = parseWindow(limits.five_hour);
-  if (session === null && limits.five_hour !== null && limits.five_hour !== undefined) {
+  if (session === null && !isAbsent(limits.five_hour) && !isIdleWindow(limits.five_hour)) {
     return null;
   }
   return { session, weekly: parseWindow(limits.seven_day) };

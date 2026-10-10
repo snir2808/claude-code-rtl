@@ -203,6 +203,10 @@ export async function activate(
     showUsage(status);
   };
 
+  const reportOfferError = (err: unknown): void => {
+    console.error(formatError('ask about the session clock', err));
+  };
+
   // The clock reads Claude Code's sign-in and calls Anthropic, so it asks
   // first, once: only when the user never turned it on or off. The answer is
   // never awaited by activation.
@@ -211,6 +215,17 @@ export async function activate(
       context.globalState.get<boolean>(USAGE_FLAG) !== undefined ||
       context.globalState.get<boolean>(USAGE_PROMPTED_KEY, false)
     ) {
+      return;
+    }
+    // Several windows can activate at once, and globalState reaches the others
+    // late, so only a focused window asks; the others check again on focus.
+    if (!vscode.window.state.focused) {
+      const listener = own(vscode.window.onDidChangeWindowState((e) => {
+        if (e.focused) {
+          listener.dispose();
+          void offerUsageClock().catch(reportOfferError);
+        }
+      }));
       return;
     }
     await context.globalState.update(USAGE_PROMPTED_KEY, true);
@@ -338,13 +353,28 @@ export async function activate(
     }
   }));
 
-  own(vscode.commands.registerCommand('bidi-usage.refresh', () => refreshUsage('user')));
-
-  own(vscode.commands.registerCommand('bidi-usage.toggle', async () => {
-    usageGen++; // a refresh in flight must not undo the toggle
-    await context.globalState.update(USAGE_FLAG, !isUsageEnabled());
+  const setUsageEnabled = async (on: boolean): Promise<void> => {
+    usageGen++; // a refresh in flight must not undo the change
+    await context.globalState.update(USAGE_FLAG, on);
     await refreshUsage('user');
+  };
+
+  own(vscode.commands.registerCommand('bidi-usage.refresh', async () => {
+    if (isUsageEnabled()) {
+      await refreshUsage('user');
+      return;
+    }
+    // Off: say so instead of doing nothing. The toast is never awaited.
+    void vscode.window.showInformationMessage('The session clock is off.', 'Turn on').then(async (choice) => {
+      if (choice === 'Turn on' && !disposed) {
+        await setUsageEnabled(true);
+      }
+    }).then(undefined, (err: unknown) => {
+      console.error(formatError('turn on the session clock', err));
+    });
   }));
+
+  own(vscode.commands.registerCommand('bidi-usage.toggle', () => setUsageEnabled(!isUsageEnabled())));
 
   // Started only now that everything is registered, so a failed activation
   // cannot leave a timer running. Each window polls only while it has focus;
@@ -355,9 +385,7 @@ export async function activate(
       void refreshUsage('auto');
     }
   }, USAGE_REFRESH_MS);
-  void offerUsageClock().catch((err: unknown) => {
-    console.error(formatError('ask about the session clock', err));
-  });
+  void offerUsageClock().catch(reportOfferError);
 
   // The initial sync runs after everything is registered and never blocks
   // activation on a toast.
