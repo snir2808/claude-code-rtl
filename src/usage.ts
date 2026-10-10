@@ -7,6 +7,8 @@ export const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const KEYCHAIN_SERVICE = 'Claude Code-credentials';
 /** `security` exits with 44 (errSecItemNotFound) when the Keychain has no such item. */
 const KEYCHAIN_ITEM_NOT_FOUND = 44;
+/** …and with 36 (errSecInteractionNotAllowed) when the keychain is locked and may not ask to unlock. */
+const KEYCHAIN_LOCKED = 36;
 /** Printable ASCII only: no spaces, no control characters, nothing a header could not carry. */
 const TOKEN_PATTERN = /^[\x21-\x7e]+$/;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -55,21 +57,33 @@ export function parseUsage(body: unknown): Usage | null {
   if (!('five_hour' in limits) && !('seven_day' in limits)) {
     return null;
   }
-  return { session: parseWindow(limits.five_hour), weekly: parseWindow(limits.seven_day) };
+  // A session window that is there but cannot be read makes the response
+  // unexpected; it is not "no active window". A malformed weekly window is
+  // only dropped.
+  const session = parseWindow(limits.five_hour);
+  if (session === null && limits.five_hour !== null && limits.five_hour !== undefined) {
+    return null;
+  }
+  return { session, weekly: parseWindow(limits.seven_day) };
 }
 
-/** 24-hour local clock, e.g. 07:05. */
+/** The same moment rounded to the nearest minute, so 16:59:59.9 reads as 17:00. */
+function nearestMinute(date: Date): Date {
+  return new Date(Math.round(date.getTime() / 60_000) * 60_000);
+}
+
+/** 24-hour local clock, rounded to the nearest minute, e.g. 07:05. */
 export function formatClock(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const time = nearestMinute(date);
+  return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
 }
 
 function weeklyLine(weekly: UsageWindow | null): string {
   if (!weekly) {
     return '';
   }
-  const resets = weekly.resetsAt
-    ? `, resets ${WEEKDAYS[weekly.resetsAt.getDay()]} ${formatClock(weekly.resetsAt)}`
-    : '';
+  const resetsAt = weekly.resetsAt && nearestMinute(weekly.resetsAt);
+  const resets = resetsAt ? `, resets ${WEEKDAYS[resetsAt.getDay()]} ${formatClock(resetsAt)}` : '';
   return `\nWeekly (7 days): ${Math.round(weekly.utilization)}% used${resets}.`;
 }
 
@@ -115,8 +129,8 @@ export function parseAccessToken(raw: string): string | null {
 /**
  * The credentials could not be read, which is not the same as there being
  * none. The message is fixed text, never the tool's output or the raw error,
- * so it is safe to show. `denied` marks a Keychain that refused or never
- * answered: retrying on a timer would only raise its prompt again.
+ * so it is safe to show. `denied` marks a Keychain that refused, never
+ * answered or is locked: retrying on a timer would only raise its prompt again.
  */
 export class CredentialReadError extends Error {
   constructor(message: string, readonly denied: boolean) {
@@ -144,6 +158,9 @@ export function classifyKeychainError(
 ): 'missing' | CredentialReadError {
   if (err.code === KEYCHAIN_ITEM_NOT_FOUND) {
     return 'missing';
+  }
+  if (err.code === KEYCHAIN_LOCKED) {
+    return new CredentialReadError('the Keychain is locked', true);
   }
   if (err.killed || err.signal === 'SIGTERM') {
     return new CredentialReadError('the Keychain did not answer', true);
@@ -234,7 +251,11 @@ export async function fetchUsage(
     throw new Error(isTimeout(err) ? 'the usage request timed out' : 'network error');
   }
   if (!response.ok) {
-    throw new Error(`usage request failed (HTTP ${response.status})`);
+    throw new Error(
+      response.status === 401
+        ? 'sign-in expired (use Claude Code to refresh it)'
+        : `usage request failed (HTTP ${response.status})`
+    );
   }
   let body: unknown;
   try {

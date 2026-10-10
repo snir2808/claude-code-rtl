@@ -9,7 +9,7 @@ import { REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
 import { appendBlock } from '../patcher';
 import { CredentialReadError, Usage } from '../usage';
 import { FakeClock, flush } from './fake-clock';
-import { FakeStatusBarItem, commands, fake } from './fake-vscode';
+import { FakeMessage, FakeStatusBarItem, commands, fake } from './fake-vscode';
 
 // activate() runs against the fake vscode module (see setup.ts), a fake
 // clock, a temp folder standing in for Claude Code, and a fake UsageSource:
@@ -249,9 +249,203 @@ suite('extension — activate()', () => {
       await start(context.globalState);
       assert.strictEqual(texts('warning').length, 1);
     });
+
+    test('two quick theme toggles apply in order, and each prompt matches the CSS it reports', async () => {
+      const dir = await installClaudeCode('2.1.287');
+      await start();
+      const prompts: string[] = [];
+      fake.answer((message) => {
+        if (message.text.startsWith('BiDi Theme: turned')) {
+          prompts.push(`${message.text} Theme block: ${cssOf(dir).includes(THEME.markers.start)}`);
+        }
+        return undefined;
+      });
+      await Promise.all([commands.executeCommand('bidi-theme.toggle'), commands.executeCommand('bidi-theme.toggle')]);
+      assert.deepStrictEqual(prompts, [
+        'BiDi Theme: turned off. Reload window to apply. Theme block: false',
+        'BiDi Theme: turned on. Reload window to apply. Theme block: true',
+      ]);
+      assert.strictEqual(cssOf(dir), synced(['theme', 'rtl']));
+    });
+
+    test('a font that cannot be removed is logged as a font sync failure', async () => {
+      const dir = await installClaudeCode('2.1.287');
+      await fs.promises.mkdir(path.join(dir, 'webview', THEME.assets[0].target)); // a folder where a font goes
+      const logged: string[] = [];
+      const consoleError = console.error;
+      console.error = (...args: unknown[]) => void logged.push(args.join(' '));
+      try {
+        await start(new Memento({ [THEME.flagKey]: false }));
+      } finally {
+        console.error = consoleError;
+      }
+      assert.strictEqual(logged.length, 1, logged.join('\n'));
+      assert.ok(logged[0].startsWith(`BiDi Theme: font sync failed — ${THEME.assets[0].target}`), logged[0]);
+    });
+
+    test('each status item has its own id and name', async () => {
+      await installClaudeCode('2.1.287');
+      await start();
+      assert.deepStrictEqual(
+        fake.items.map((i) => [i.id, i.name]),
+        [
+          ['bidi.theme', 'BiDi Theme'],
+          ['bidi.rtl', 'BiDi RTL'],
+          ['bidi.sessionClock', 'Claude Session Clock'],
+        ]
+      );
+    });
+
+    test('a failed activation still hands over everything it created', async () => {
+      await installClaudeCode('2.1.287');
+      commands.registerCommand('bidi-usage.toggle', () => undefined); // taken: registering it again throws
+      const context: Context = { subscriptions: [], extensionPath: ROOT, globalState: new Memento() };
+      await assert.rejects(activate(context as unknown as vscode.ExtensionContext, usage), /already exists/);
+      stop(context);
+      assert.strictEqual(fake.listenerCount, 0);
+      assert.deepStrictEqual(fake.commandIds, ['bidi-usage.toggle']);
+      assert.ok(fake.items.length > 0 && fake.items.every((i) => i.disposed));
+      assert.strictEqual(clock.pending, 0);
+    });
+
   });
 
   suite('session clock', () => {
+    const PROMPT =
+      "BiDi: Show when your Claude 5-hour session resets in the status bar? It reads Claude Code's sign-in " +
+      'from the macOS Keychain and asks Anthropic for your usage.';
+    const prompts = (): FakeMessage[] => fake.messages.filter((m) => m.text.startsWith('BiDi: Show when'));
+
+    test('it is off until the user opts in, and it asks only once', async () => {
+      await installClaudeCode('2.1.287');
+      fake.answer((message) => (message.items.includes('Not now') ? 'Not now' : undefined));
+      const context = await start();
+      assert.strictEqual(prompts().length, 1);
+      assert.deepStrictEqual(prompts()[0].items, ['Enable', 'Not now']);
+      if (process.platform === 'darwin') {
+        assert.strictEqual(prompts()[0].text, PROMPT);
+      }
+      assert.strictEqual(context.globalState.get(USAGE_FLAG), undefined);
+      assert.strictEqual(clockItem().visible, false);
+
+      await clock.tick(5 * MINUTE);
+      await fake.focus(false);
+      await fake.focus(true);
+      await flush();
+      assert.strictEqual(usage.reads, 0, 'no Keychain read while the clock is off');
+      assert.strictEqual(usage.fetches, 0, 'no request while the clock is off');
+
+      stop(context);
+      await start(context.globalState); // another window, or the next session
+      assert.strictEqual(prompts().length, 1);
+      assert.strictEqual(usage.reads, 0);
+    });
+
+    test('a dismissed question also leaves it off', async () => {
+      await installClaudeCode('2.1.287');
+      const context = await start(); // the fake dismisses every toast
+      assert.strictEqual(prompts().length, 1);
+      assert.strictEqual(context.globalState.get(USAGE_FLAG), undefined);
+      assert.strictEqual(usage.reads, 0);
+    });
+
+    test('Enable turns it on and shows it', async () => {
+      await installClaudeCode('2.1.287');
+      fake.answer((message) => (message.items.includes('Enable') ? 'Enable' : undefined));
+      const context = await start();
+      assert.strictEqual(context.globalState.get(USAGE_FLAG), true);
+      assert.strictEqual(usage.reads, 1);
+      assert.ok(clockItem().visible);
+      assert.strictEqual(clockItem().text, '$(watch) 11:00 · 42%');
+    });
+
+    test('activation does not wait for the answer', async () => {
+      const dir = await installClaudeCode('2.1.287');
+      fake.answer(() => new Promise<undefined>(() => undefined)); // never answered
+      await start();
+      assert.strictEqual(prompts().length, 1);
+      assert.strictEqual(cssOf(dir), synced(['theme', 'rtl']));
+    });
+
+    test('an Enable that arrives after the window closed changes nothing', async () => {
+      await installClaudeCode('2.1.287');
+      const answer = deferred<string | undefined>();
+      fake.answer((message) => (message.items.includes('Enable') ? answer.promise : undefined));
+      const context = await start();
+      stop(context);
+      answer.resolve('Enable');
+      await flush();
+      assert.strictEqual(context.globalState.get(USAGE_FLAG), undefined);
+      assert.strictEqual(usage.reads, 0);
+    });
+
+    test('a choice made before, on or off, is never asked about', async () => {
+      await installClaudeCode('2.1.287');
+      const on = await start(new Memento({ [USAGE_FLAG]: true }));
+      stop(on);
+      await start(new Memento({ [USAGE_FLAG]: false }));
+      assert.deepStrictEqual(prompts(), []);
+      assert.strictEqual(usage.reads, 1);
+    });
+
+    test('the 5-minute refresh runs only in the focused window', async () => {
+      await installClaudeCode('2.1.287');
+      await start(new Memento({ [USAGE_FLAG]: true }));
+      assert.strictEqual(usage.reads, 1);
+      await fake.focus(false);
+      await clock.tick(5 * MINUTE);
+      assert.strictEqual(usage.reads, 1, 'no refresh in a window without focus');
+      await fake.focus(true); // focus refreshes: the last fetch is over a minute old
+      await flush();
+      assert.strictEqual(usage.reads, 2);
+      await clock.tick(5 * MINUTE);
+      assert.strictEqual(usage.reads, 3);
+    });
+
+    test('focus shows the last result as of now, even when it is too soon to fetch again', async () => {
+      await installClaudeCode('2.1.287');
+      usage.fetch = async () => ({ session: { utilization: 97, resetsAt: new Date(START + 20_000) }, weekly: null });
+      await start(new Memento({ [USAGE_FLAG]: true }));
+      assert.strictEqual(clockItem().text, '$(watch) 09:00 · 97%');
+
+      clock.jump(40_000); // the machine sleeps through the reset
+      await fake.focus(true);
+      await flush();
+      assert.strictEqual(usage.fetches, 1, 'the last fetch is under a minute old');
+      assert.strictEqual(clockItem().text, '$(watch) —');
+      assert.ok(clockItem().tooltip?.startsWith('Claude session (5h): no active window'), clockItem().tooltip);
+    });
+
+    test('a toggle-off made in another window applies as soon as this one has focus', async () => {
+      await installClaudeCode('2.1.287');
+      const context = await start(new Memento({ [USAGE_FLAG]: true }));
+      assert.ok(clockItem().visible);
+      await context.globalState.update(USAGE_FLAG, false); // the other window
+      await fake.focus(true);
+      await flush();
+      assert.strictEqual(clockItem().visible, false);
+      assert.strictEqual(usage.reads, 1);
+    });
+
+    test('a toggle-off made in another window applies here even while paused', async () => {
+      await installClaudeCode('2.1.287');
+      usage.read = async () => {
+        throw new CredentialReadError('Keychain access was denied', true);
+      };
+      const context = await start(new Memento({ [USAGE_FLAG]: true }));
+      assert.ok(clockItem().visible);
+
+      await context.globalState.update(USAGE_FLAG, false); // the other window
+      await clock.tick(5 * MINUTE);
+      assert.strictEqual(clockItem().visible, false);
+
+      usage.read = async () => 'tok-test';
+      await context.globalState.update(USAGE_FLAG, true); // turned on again over there
+      await clock.tick(5 * MINUTE);
+      assert.strictEqual(usage.reads, 2, 'turning it off ended the pause');
+      assert.strictEqual(clockItem().text, '$(watch) 11:00 · 42%');
+    });
+
     test('a Keychain denial pauses automatic refreshes until the clock is clicked or toggled', async () => {
       await installClaudeCode('2.1.287');
       usage.read = async () => {

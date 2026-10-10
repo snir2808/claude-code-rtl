@@ -40,6 +40,22 @@ suite('usage — parse', () => {
     assert.deepStrictEqual(usage, { session: { utilization: 0, resetsAt: null }, weekly: null });
   });
 
+  test('a session window that is present but malformed rejects the whole body', () => {
+    const weekly = { utilization: 31, resets_at: '2026-10-15T06:00:00.000Z' };
+    for (const fiveHour of [{ utilization: 'x' }, { utilization: 5, resets_at: 'soon' }, 'five', 42]) {
+      assert.strictEqual(parseUsage({ five_hour: fiveHour, seven_day: weekly }), null, JSON.stringify(fiveHour));
+    }
+  });
+
+  test('a null or missing session window means no active window', () => {
+    const weekly = { utilization: 31, resets_at: null };
+    assert.deepStrictEqual(parseUsage({ five_hour: null, seven_day: weekly }), {
+      session: null,
+      weekly: { utilization: 31, resetsAt: null },
+    });
+    assert.deepStrictEqual(parseUsage({ seven_day: weekly }), { session: null, weekly: { utilization: 31, resetsAt: null } });
+  });
+
   test('unrelated bodies are rejected', () => {
     assert.strictEqual(parseUsage({ error: 'nope' }), null);
     assert.strictEqual(parseUsage('five_hour'), null);
@@ -53,6 +69,21 @@ suite('usage — format', () => {
   test('formatClock is a zero-padded 24-hour clock', () => {
     assert.strictEqual(formatClock(at(7, 5)), '07:05');
     assert.strictEqual(formatClock(at(17, 42)), '17:42');
+  });
+
+  test('formatClock rounds to the nearest minute', () => {
+    assert.strictEqual(formatClock(new Date(2026, 9, 9, 16, 59, 59, 900)), '17:00');
+    assert.strictEqual(formatClock(new Date(2026, 9, 9, 7, 5, 29)), '07:05');
+    assert.strictEqual(formatClock(new Date(2026, 9, 9, 7, 5, 30)), '07:06');
+    assert.strictEqual(formatClock(new Date(2026, 9, 9, 23, 59, 45)), '00:00');
+  });
+
+  test('the weekly reset day follows the rounded time', () => {
+    const status = formatUsageStatus(
+      { session: null, weekly: { utilization: 31, resetsAt: new Date(2026, 9, 11, 23, 59, 45) } },
+      at(15, 0)
+    );
+    assert.ok(status.tooltip.includes('Weekly (7 days): 31% used, resets Mon 00:00.'), status.tooltip);
   });
 
   test('an active window shows its reset time and usage', () => {
@@ -126,8 +157,9 @@ suite('usage — credentials and request', () => {
       status: code,
       json: async () => body,
     });
-    await assert.rejects(fetchUsage('t', reply(401, {})), /HTTP 401/);
+    await assert.rejects(fetchUsage('t', reply(500, {})), /HTTP 500/);
     await assert.rejects(fetchUsage('t', reply(200, { hello: 1 })), /unexpected usage response/);
+    await assert.rejects(fetchUsage('t', reply(200, { five_hour: { utilization: 'x' } })), /unexpected usage response/);
   });
 
   test('fetchUsage refuses redirects and carries a timeout signal', async () => {
@@ -201,6 +233,17 @@ suite('usage — errors never carry the token or the response', () => {
     });
     await rejectsOnly(fetchUsage(SECRET, fake), 'usage request failed (HTTP 403)');
   });
+
+  test('HTTP 401 says the sign-in expired and how to renew it', async () => {
+    const fake: FetchLike = async () => ({
+      ok: false,
+      status: 401,
+      json: async () => {
+        throw new Error(`expired: ${SECRET}`);
+      },
+    });
+    await rejectsOnly(fetchUsage(SECRET, fake), 'sign-in expired (use Claude Code to refresh it)');
+  });
 });
 
 suite('usage — credential read errors', () => {
@@ -223,8 +266,14 @@ suite('usage — credential read errors', () => {
     }
   });
 
+  test('exit 36 means the Keychain is locked', () => {
+    const result = failure({ code: 36, killed: false, signal: null });
+    assert.strictEqual(result.message, 'the Keychain is locked');
+    assert.strictEqual(result.denied, true);
+  });
+
   test('any other exit code means access was denied', () => {
-    for (const code of [51, 1, 36]) {
+    for (const code of [51, 1, 128]) {
       const result = failure({ code, killed: false, signal: null });
       assert.strictEqual(result.message, 'Keychain access was denied');
       assert.strictEqual(result.denied, true);
