@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FEATURES, RTL, THEME } from '../features';
-import { appendBlock, stripBlock } from '../patcher';
+import { appendBlock, stripBlock } from '../blocks';
 
 const CSS = '.foo{color:red}\n.bar{display:flex}';
 const M = { start: '/* x-start */', end: '/* x-end */' };

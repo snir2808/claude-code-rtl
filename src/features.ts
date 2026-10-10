@@ -1,4 +1,4 @@
-import type { BlockMarkers } from './patcher';
+import type { BlockMarkers } from './blocks';
 
 export type FeatureId = 'theme' | 'rtl';
 

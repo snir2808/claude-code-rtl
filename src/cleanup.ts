@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { FEATURES } from './features';
-import { stripBlock, writeFileAtomic } from './patcher';
+import { stripBlock, writeFileAtomic } from './blocks';
 
 const CLAUDE_DIR_PREFIX = 'anthropic.claude-code-';
 

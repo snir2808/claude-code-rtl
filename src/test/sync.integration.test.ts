@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { FeatureId, RTL, THEME } from '../features';
-import { appendBlock } from '../patcher';
+import { appendBlock } from '../blocks';
 import { syncInstall } from '../sync';
 
 const ORIGINAL = '.foo{color:red}\n.bar{display:flex}';

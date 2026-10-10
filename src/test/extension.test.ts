@@ -6,7 +6,7 @@ import type * as vscode from 'vscode';
 import { UsageSource, activate } from '../extension';
 import { FeatureId, RTL, THEME } from '../features';
 import { REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
-import { appendBlock } from '../patcher';
+import { appendBlock } from '../blocks';
 import { CredentialReadError, Usage } from '../usage';
 import { FakeClock, flush } from './fake-clock';
 import { FakeMessage, FakeStatusBarItem, commands, fake } from './fake-vscode';

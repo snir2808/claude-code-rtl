@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FEATURES, Feature, FeatureId } from './features';
-import { appendBlock, stripBlock, writeFileAtomic } from './patcher';
+import { appendBlock, stripBlock, writeFileAtomic } from './blocks';
 
 export type BlockBodies = Readonly<Record<FeatureId, string>>;
 

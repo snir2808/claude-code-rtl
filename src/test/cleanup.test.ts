@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { cleanupAll, findClaudeCodeCssPaths } from '../cleanup';
 import { RTL, THEME } from '../features';
-import { appendBlock } from '../patcher';
+import { appendBlock } from '../blocks';
 import { main } from '../uninstall';
 
 const ORIGINAL_A = '.a{color:red}\n.b{display:flex}';

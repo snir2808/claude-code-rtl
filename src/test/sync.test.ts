@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { FeatureId, RTL, THEME } from '../features';
-import { appendBlock } from '../patcher';
+import { appendBlock } from '../blocks';
 import { BlockBodies, computeSyncedCss } from '../sync';
 
 const CSS = '.foo{color:red}\n/* ✳ unicode stays */\n.bar{display:flex}\n';
