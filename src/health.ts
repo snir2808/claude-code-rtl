@@ -4,8 +4,8 @@ import * as path from 'path';
 /**
  * Class-name prefixes the blocks rely on; each must still appear as
  * `.prefix…` in index.css. Every [class*="…_"] prefix in css/theme.css is
- * here (src/test/theme-css.test.ts checks that), plus what the theme reaches
- * without naming it (turn_ is a row of the reading column,
+ * here (src/test/theme-css.test.ts checks that), plus what the blocks reach
+ * without naming it (turn_ holds each conversation turn's rows,
  * inputContainerBackground_ paints the composer's rounded corners) and
  * toolUse_, which css/rtl.css keeps left-to-right.
  */

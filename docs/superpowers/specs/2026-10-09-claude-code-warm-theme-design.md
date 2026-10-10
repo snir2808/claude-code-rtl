@@ -12,7 +12,7 @@
 
 The Claude Code panel in VS Code Insiders (Claude Code 2.1.287, Dark Modern theme, opened as an editor tab) is tiring to read in Hebrew:
 
-- Body text is 13px with tight spacing, and in a wide editor tab lines run the full width.
+- Body text is 13px with tight spacing.
 - Hebrew falls back to whatever Hebrew font macOS substitutes for `-apple-system`.
 - The input box is cramped: footer buttons are 11px gray text (4.8:1) with ~20px hit areas, and the send button is 26px.
 - The unfocused input box border (Dark Modern's `#3c3c3c`) is about 1.5:1 against the panel (1.49:1 on `#1f1f1f`, 1.61:1 on `#181818`).
@@ -122,7 +122,7 @@ Unit tests enforce the first two rules and the last one, and that `data-fit-stag
 Runs after each sync against the active install, while the theme is enabled (its checks and warning are about the theme):
 
 - **Integrity:** `index.css` contains Claude Code's token block (`html{--app-`). A file without it is still synced, and the warning says it is damaged or Claude Code changed its stylesheet format, and to reinstall Claude Code.
-- **Compatibility:** `index.css` still contains (as `.prefix…`) every class prefix the blocks rely on — each `[class*="…_"]` prefix in `css/theme.css` (`messagesContainer_`, `timelineMessage_`, `userMessage_`, `root_`, `toolNameText_`, `codeBlockWrapper_`, `inputContainer_`, `inputFooter_`, `footerButton_`, `footerButtonPrimary_`, `usageButtonV2_`, `pill_`, `modelPill_`, `modelPillRow_`, `menuButton_`, `spacer_`, `sendButton_`), plus `turn_`, `inputContainerBackground_` and `toolUse_` — and `index.js` still contains the attribute hooks: `assistant-message`, `Claude, `, `Message input`, `data-cache-window`, `title:"Add"`, `combobox`, `type:"submit"`, `data-permission-mode` (standing in for the generic mode names `plan` and `auto`) and `bypassPermissions`. A unit test parses `css/theme.css` and fails if one of its class prefixes or attribute hooks is not on these lists.
+- **Compatibility:** `index.css` still contains (as `.prefix…`) every class prefix the blocks rely on — each `[class*="…_"]` prefix in `css/theme.css` (`timelineMessage_`, `userMessage_`, `root_`, `toolNameText_`, `codeBlockWrapper_`, `inputContainer_`, `inputFooter_`, `footerButton_`, `footerButtonPrimary_`, `usageButtonV2_`, `pill_`, `modelPill_`, `modelPillRow_`, `menuButton_`, `spacer_`, `sendButton_`), plus `turn_`, `inputContainerBackground_` and `toolUse_` — and `index.js` still contains the attribute hooks: `assistant-message`, `Claude, `, `Message input`, `data-cache-window`, `title:"Add"`, `combobox`, `type:"submit"`, `data-permission-mode` (standing in for the generic mode names `plan` and `auto`) and `bypassPermissions`. A unit test parses `css/theme.css` and fails if one of its class prefixes or attribute hooks is not on these lists.
 - **Unreadable files:** an `index.css` or `index.js` that cannot be read is reported (and nothing in it checked), since a moved or renamed file is the kind of change the check exists for.
 - Problems produce one warning per Claude Code version (remembered in `bidiTheme.lastWarnedVersion`) that lists what is missing or unreadable. The theme stays applied: partial breakage is visible but never blocks the panel.
 - A healthy verdict is remembered per Claude Code version for the rest of the activation, so later syncs don't read `index.js` (megabytes) again.
@@ -183,7 +183,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 
 ### Layout
 
-- **Width:** messages use the panel's full width, as in Claude Code's default; the composer keeps Claude Code's native centered 680px. (Changed on 2026-10-10 at the user's request: the first version had a 680px reading column for the messages too.)
+- **Width:** messages use the panel's full width, as in Claude Code's default; the composer keeps Claude Code's native centered 680px. (Changed on 2026-10-10 at the user's request: the first version had a 680px reading column for the messages too, and the mockup still draws it.)
 
 ### Components
 
