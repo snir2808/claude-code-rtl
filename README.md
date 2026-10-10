@@ -32,11 +32,29 @@ Light and high-contrast themes are left untouched.
 A status-bar item, `⏱ 17:42 · 42%`, shows when your current 5-hour Claude usage window resets
 and how much of it you've used. Hover for the weekly window; click to refresh.
 
+The clock is off until you turn it on. The first time the extension starts, it asks once:
+
+> BiDi: Show when your Claude 5-hour session resets in the status bar? It reads Claude Code's
+> sign-in from the macOS Keychain and asks Anthropic for your usage.
+
+**Enable** turns it on. **Not now**, or closing the message, leaves it off: nothing is read and
+nothing is sent. `BiDi Usage: Toggle Session Clock On/Off` turns it on or off at any time, and off
+stops all Keychain and network access.
+
 It asks Anthropic's usage endpoint (the one Claude Code itself uses) with the login Claude Code
 already stored on your machine: the macOS Keychain entry `Claude Code-credentials`, or
-`~/.claude/.credentials.json` elsewhere. The token is read fresh for each refresh, sent only to
-`api.anthropic.com`, and never logged or stored. macOS may ask once to allow Keychain access; if
-you decline, the clock says so and stops asking until you click it.
+`~/.claude/.credentials.json` elsewhere (where the question names that file instead). The token is
+read fresh for each refresh, sent only to `api.anthropic.com`, and never logged or stored.
+
+- **Keychain:** there is normally no dialog, because Claude Code stored the entry with macOS's
+  own `security` tool, which is also what the clock reads it with. A locked keychain may ask you
+  to unlock it. If you decline or don't answer, the clock shows `—` with the reason on hover and
+  pauses until you click it, toggle it, or reload the window.
+- **Refreshes:** when VS Code starts, every 5 minutes in the focused window, when a window
+  regains focus (at most once a minute), and right after the session window resets.
+- **Not supported:** an API-key sign-in stores no Claude.ai login, so the clock says
+  `not signed in to Claude Code`. So do setups with a custom `CLAUDE_CONFIG_DIR` or
+  `CLAUDE_SECURESTORAGE_CONFIG_DIR`, which keep the sign-in somewhere else.
 
 No telemetry, no network calls besides that one, and no settings to configure.
 
@@ -50,7 +68,8 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
    ```bash
    code --install-extension vscode-bidi-rtl-0.1.0.vsix
    ```
-3. Reload the window. Both modules are applied automatically on startup.
+3. Reload the window. RTL and the theme are applied automatically on startup; the session clock
+   asks first.
 
 ## Commands
 
@@ -58,7 +77,7 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 |---|---|
 | `BiDi RTL: Toggle RTL On/Off` | Turns RTL on or off (remembered across restarts). Also the **RTL** button in the status bar. |
 | `BiDi Theme: Toggle Warm Theme On/Off` | Turns the theme on or off (remembered across restarts). Also the **Theme** button in the status bar. |
-| `BiDi Usage: Toggle Session Clock On/Off` | Shows or hides the session clock. |
+| `BiDi Usage: Toggle Session Clock On/Off` | Shows or hides the session clock. Off means no Keychain reads and no network requests. |
 | `BiDi Usage: Refresh Session Clock` | Refreshes the clock now (same as clicking it). |
 | `BiDi RTL: Apply RTL Patch to Claude Code` | Turns RTL on. |
 | `BiDi RTL: Remove RTL Patch` | Turns RTL off. |
@@ -69,14 +88,17 @@ Claude Code renders its conversation in a webview. This extension appends one cl
 CSS block per enabled module to that webview's `index.css`, and copies the theme's font files
 next to it.
 
-- Both blocks are re-applied automatically after a Claude Code update.
-- After an update, the extension checks that the parts of Claude Code the theme styles are still
-  there, and warns once per version if something is missing.
+- Each enabled block is re-applied automatically after a Claude Code update.
+- While the theme is on, every sync (at startup, after a Claude Code update, on each toggle)
+  checks that the parts of Claude Code the theme styles are still there, and warns once per
+  Claude Code version if something is missing.
 - Uninstalling the extension removes the blocks and fonts by itself. The cleanup runs the next
   time VS Code fully restarts after the uninstall, because that is when VS Code runs uninstall
   hooks.
 - *Disabling* the extension (as opposed to uninstalling it) keeps the patch, so use the toggles
   to turn the modules off.
+- Going back to 0.0.3 leaves the theme block and its fonts behind, since 0.0.3 knows only the RTL
+  block. Turn the theme off first (or uninstall 0.1.0 and restart VS Code), then install 0.0.3.
 
 ## Build from source
 

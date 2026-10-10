@@ -47,6 +47,7 @@
     ]
   },
   "scripts": {
+    "vscode:prepublish": "rm -rf out && npm run compile",
     "vscode:uninstall": "node ./out/uninstall",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",

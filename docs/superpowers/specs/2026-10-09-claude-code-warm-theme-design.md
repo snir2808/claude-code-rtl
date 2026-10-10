@@ -100,11 +100,12 @@ One operation, `sync`, replaces the separate apply/remove calls. It runs on acti
 1. Read `<claude-code>/webview/index.css`.
 2. Strip every known block (both marker pairs, global match as today).
 3. Append the enabled blocks in canonical order: `theme`, then `rtl`.
-4. If the result equals the file, skip the write; otherwise write with `writeFileAtomic`.
-5. Theme assets: when the theme is enabled, copy each font if it is missing or its size or SHA-256 differs; when disabled, delete our `bidi-theme-*` files.
-6. Run the health check.
+4. Fonts of enabled blocks: copy each one that is missing or whose size or SHA-256 differs.
+5. If the result equals the file, skip the write; otherwise write with `writeFileAtomic`.
+6. Fonts of disabled blocks: delete our `bidi-theme-*` files, only now, so a failed write never leaves the old CSS pointing at deleted fonts.
+7. While the theme is enabled, run the health check.
 
-`computeSyncedCss(content, enabledIds)` is pure, so steps 2–3 are unit-tested without I/O. The toggle commands flip the flag, run sync, and offer a window reload, as the RTL toggle does today.
+`computeSyncedCss(content, enabledIds)` is pure, so steps 2–3 are unit-tested without I/O. The toggle commands read, flip and sync the flag as one queued step (so quick toggles apply in order and each reload prompt matches what was synced) and offer a window reload, as the RTL toggle does today.
 
 ### Rules for `theme.css`
 
@@ -112,23 +113,26 @@ One operation, `sync`, replaces the separate apply/remove calls. It runs on acti
 - No `direction`, `text-align` or `unicode-bidi` declarations — those belong to the RTL module. Logical properties that follow direction (`border-inline-start`, `margin-inline`) are allowed.
 - Prefer token overrides; target components only where tokens can't express the design.
 - Don't override inline styles, the composer dock's position or outer spacing, or anything keyed on `data-fit-stage`.
+- No `!important`, no block marker text, and no hashed class names (`messagesContainer_07S1Yg`): Claude Code's class names carry a build hash, so selectors match the prefix.
 
-A unit test enforces the first two rules.
+Unit tests enforce the first two rules and the last one, and that `data-fit-stage` never appears.
 
 ### Health check
 
 Runs after each sync against the active install, while the theme is enabled (its checks and warning are about the theme):
 
-- **Integrity:** `index.css` contains Claude Code's token block (`html{--app-`). A damaged file is still synced, and the warning names it.
-- **Compatibility:** `index.css` still contains the class prefixes the theme targets — `messagesContainer_`, `turn_`, `timelineMessage_`, `userMessage_`, `toolUse_`, `toolNameText_`, `inputContainer_`, `inputContainerBackground_`, `inputFooter_`, `footerButton_`, `spacer_`, `sendButton_`, `modelPill_`, `menuButton_`, `codeBlockWrapper_` — and `index.js` still contains the hooks used in selectors: `assistant-message`, `Claude, `, `Message input`.
-- Problems produce one warning per Claude Code version (remembered in `bidiTheme.lastWarnedVersion`) that lists what is missing. The theme stays applied: partial breakage is visible but never blocks the panel.
+- **Integrity:** `index.css` contains Claude Code's token block (`html{--app-`). A file without it is still synced, and the warning says it is damaged or Claude Code changed its stylesheet format, and to reinstall Claude Code.
+- **Compatibility:** `index.css` still contains (as `.prefix…`) every class prefix the blocks rely on — each `[class*="…_"]` prefix in `css/theme.css` (`messagesContainer_`, `timelineMessage_`, `userMessage_`, `root_`, `toolNameText_`, `codeBlockWrapper_`, `inputContainer_`, `inputFooter_`, `footerButton_`, `footerButtonPrimary_`, `usageButtonV2_`, `pill_`, `modelPill_`, `modelPillRow_`, `menuButton_`, `spacer_`, `sendButton_`), plus `turn_`, `inputContainerBackground_` and `toolUse_` — and `index.js` still contains the attribute hooks: `assistant-message`, `Claude, `, `Message input`, `data-cache-window`, `title:"Add"`, `combobox`, `type:"submit"`, `data-permission-mode` (standing in for the generic mode names `plan` and `auto`) and `bypassPermissions`. A unit test parses `css/theme.css` and fails if one of its class prefixes or attribute hooks is not on these lists.
+- **Unreadable files:** an `index.css` or `index.js` that cannot be read is reported (and nothing in it checked), since a moved or renamed file is the kind of change the check exists for.
+- Problems produce one warning per Claude Code version (remembered in `bidiTheme.lastWarnedVersion`) that lists what is missing or unreadable. The theme stays applied: partial breakage is visible but never blocks the panel.
+- A healthy verdict is remembered per Claude Code version for the rest of the activation, so later syncs don't read `index.js` (megabytes) again.
 
 ### Error handling
 
 - Claude Code not installed → the existing warning.
 - Permission or write errors → the existing error toast (`formatError`).
-- Font copy fails → the theme CSS still applies and the font stack falls back to the system font; the error is logged, not shown.
-- Uninstall → `cleanup.ts` strips both blocks and deletes `bidi-theme-*` files from every `anthropic.claude-code-*` folder, symlinks included (existing behavior).
+- Font copy or delete fails → the theme CSS still applies and the font stack falls back to the system font; the error is logged (`font sync failed`), not shown.
+- Uninstall → `cleanup.ts` strips both blocks and deletes `bidi-theme-*` files from every `anthropic.claude-code-*` folder, symlinks included (existing behavior). A font that is already gone is fine; any other failure, or an install that cannot be read, is logged per install without stopping the others.
 
 ### Identity
 
@@ -185,7 +189,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 
 **User message** (`[class*="userMessage_"]`): background `#262320`; no border except `border-inline-start: 3px solid #d97757`; radius 14px; padding 12px 16px; text `#f5f0e8` (13.8:1). Claude Code's inline 60px clamp stays.
 
-**Assistant text rows** (`[data-testid="assistant-message"]:has(> span[class*="root_"])`): `padding-left: 0`; the dot (`::before`) and line (`::after`) are hidden.
+**Assistant text rows** (`[data-testid="assistant-message"]:has(> span[class*="root_"]):not([aria-label^="Claude, "])`): `padding-left: 0`; the dot (`::before`) and line (`::after`) are hidden. A row whose message also holds a tool call (an empty text block plus `tool_use`) carries the tool's `aria-label`, so it stays a timeline row.
 
 **Activity groups (tool and thinking rows).** An activity row (ACT below) is `[data-testid="assistant-message"][aria-label^="Claude, "]`. It is attribute-only, so it can sit inside `:has()` without nesting `:has()`.
 
@@ -201,7 +205,9 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 - Box: `body.vscode-dark fieldset[class*="inputContainer_"] { --corner-radius-large: 16px }`. The background layer inherits the same radius, and colors come from the tokens. The existing `:focus-within` rules keep their permission-mode ring colors.
 - Text layers: no padding or position changes, so the placeholder's physical offsets stay correct.
 - The footer gets a 6px gap between items.
-- Footer buttons — add (`button[title="Add"]`), command menu (`[class*="menuButton_"]`), `[class*="footerButton_"]` and pills (`[class*="modelPill_"]`): min-height 28px, padding 0 10px, radius 9px, 12.5px text. Filled `#2f2b26` with `#ddd4c6` text (9.6:1). The mode selector and the model pill use a ghost style instead: transparent fill and a 1px `#453e35` border.
+- Footer buttons — add (`button[title="Add"]`), command menu (`button[class*="menuButton_"]`), `button[class*="footerButton_"]` and pills (`button[class*="modelPill_"]`): min-height 28px, padding 0 10px, radius 9px, 12.5px text (the icon buttons are 30×28px). Filled `#2f2b26` with `#ddd4c6` text (9.6:1). The mode selector, the model pill and the context pie (`button[class*="usageButtonV2_"]`, 30×28px) use a ghost style instead: transparent fill and a 1px `#453e35` border.
+- Only buttons: the cache timer and the selection chip are spans that reuse `footerButton_`, and they keep Claude Code's flat look (no fill, no hover), including the timer's error color when the prompt cache is cold.
+- At the narrowest fit stage Claude Code moves the model pill to its own row below the footer (`[class*="modelPillRow_"] > button[class*="modelPill_"]`); it keeps the same size and ghost style there.
 - Order (`order` on direct children of `[class*="inputFooter_"]`):
 
   | Item | Direct-child selector | `order` |
@@ -215,7 +221,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
   | send | `> button[type="submit"][class*="sendButton_"]` | 4 |
 
   Result: actions on the left, status on the right, send last.
-- Send (`button[type="submit"][class*="sendButton_"]`): 34×34px, radius 50%. Colors stay Claude Code's (default clay orange with an ivory icon, and the per-mode variants).
+- Send (`button[type="submit"][class*="sendButton_"]`): 34×34px, radius 50%. Colors stay Claude Code's (default clay orange with an ivory icon, and the per-mode variants). Plan, bypass and auto paint the button and icon with `--app-button-foreground`, so on the send button in those modes the theme sets it back to `var(--vscode-button-foreground)`.
 
 **Other surfaces** (menus, permission card, session list, dialogs, banners): palette through tokens only.
 
@@ -228,10 +234,12 @@ A third status-bar item shows when the current 5-hour usage window resets, reque
 - **Display:** `$(watch) 17:42 · 42%` — the reset time as a 24-hour local clock, and the share of the window used (rounded). Tooltip: `Claude session (5h): 42% used, resets at 17:42.`, a line for the weekly window when present (`Weekly (7 days): 31% used, resets Thu 09:00.`), and `Click to refresh.` Clicking refreshes.
 - **No active window** (`five_hour` missing, `resets_at` null, or the reset time already passed): `$(watch) —`, tooltip `Claude session (5h): no active window — it starts with your next message.`
 - **Data:** `GET https://api.anthropic.com/api/oauth/usage` with `Authorization: Bearer <token>` and `anthropic-beta: oauth-2025-04-20` — the endpoint and header the Claude Code CLI itself uses. The body has `five_hour` and `seven_day` windows (`utilization` 0–100, `resets_at` ISO time or null), at the top level or under `rate_limits`.
-- **Token:** Claude Code's OAuth access token (`claudeAiOauth.accessToken`), read from the macOS Keychain generic password `Claude Code-credentials` via `/usr/bin/security find-generic-password -s "Claude Code-credentials" -w`, or from `~/.claude/.credentials.json` elsewhere. It is read fresh for each refresh, held only for that request, never logged or stored, and sent only to `api.anthropic.com`. macOS may ask once to allow Keychain access.
-- **Refresh:** on activation, every 5 minutes, when the window regains focus and the last fetch is older than 60 seconds, on click, and 5 seconds after the session window resets.
-- **Errors:** `$(watch) —`, tooltip `Claude session (5h): unavailable — <reason>. Click to retry.` Never a toast. Reasons are fixed texts that never include the token or response text: `not signed in to Claude Code` (no Keychain item or credentials file), `the Keychain did not answer` and `Keychain access was denied` (after either, automatic refreshes pause until the user clicks the clock or toggles it), `could not read Claude Code credentials (<errno>)`, `the usage request timed out`, `network error`, `unexpected usage response`, `usage request failed (HTTP <status>)`. Only tokens of printable ASCII are sent, and redirects are refused. A generation counter keeps an older refresh from overwriting a newer one or undoing a toggle.
-- **Toggle:** `bidi-usage.toggle` with flag `bidiUsage.enabled` (default on); `bidi-usage.refresh` backs the click.
+- **Token:** Claude Code's OAuth access token (`claudeAiOauth.accessToken`), read from the macOS Keychain generic password `Claude Code-credentials` via `/usr/bin/security find-generic-password -s "Claude Code-credentials" -w`, or from `~/.claude/.credentials.json` elsewhere. It is read fresh for each refresh, held only for that request, never logged or stored, and sent only to `api.anthropic.com`. There is normally no Keychain dialog, since Claude Code stored the item with the same `security` tool; a locked keychain may ask to be unlocked.
+- **Opt-in:** the clock is off until the user turns it on. On the first activation that finds `bidiUsage.enabled` never set, it shows one information message, not awaited by activation: `BiDi: Show when your Claude 5-hour session resets in the status bar? It reads Claude Code's sign-in from the macOS Keychain and asks Anthropic for your usage.` (elsewhere it names `~/.claude/.credentials.json`), with `Enable` and `Not now`. `bidiUsage.prompted` is set when it shows, so only one window or activation ever asks. Enable sets the flag and refreshes; Not now or a dismissal leaves it off, with no Keychain read and no request.
+- **Refresh:** on activation, every 5 minutes in the focused window only (each VS Code window polls on its own), when a window regains focus and the last fetch is older than 60 seconds, on click, and 5 seconds after the session window resets. Focus also shows the last result again as of the current time, so a reset that passed while the machine slept shows at once, even when it is too soon to fetch. Reset times are shown rounded to the nearest minute.
+- **Errors:** `$(watch) —`, tooltip `Claude session (5h): unavailable — <reason>. Click to retry.` Never a toast. Reasons are fixed texts that never include the token or response text: `not signed in to Claude Code` (no Keychain item or credentials file, an API-key sign-in, or a custom `CLAUDE_CONFIG_DIR` / `CLAUDE_SECURESTORAGE_CONFIG_DIR`, which keep the credential under another name, unsupported), `the Keychain did not answer`, `Keychain access was denied` and `the Keychain is locked` (`security` exit 36; after any of these three, automatic refreshes pause until the user clicks the clock, toggles it, or turns it off anywhere), `could not read Claude Code credentials (<errno>)`, `the usage request timed out`, `network error`, `unexpected usage response` (also when `five_hour` is present but malformed; a malformed weekly window is only dropped), `sign-in expired (use Claude Code to refresh it)` (HTTP 401), `usage request failed (HTTP <status>)`. Only tokens of printable ASCII are sent, and redirects are refused. A generation counter keeps an older refresh from overwriting a newer one or undoing a toggle. Turning the clock off, in this window or another, applies even while paused.
+- **Toggle:** `bidi-usage.toggle` with flag `bidiUsage.enabled` (default off); `bidi-usage.refresh` backs the click. Off means no Keychain reads and no requests.
+- **Status items:** each has its own id and name (`bidi.theme` "BiDi Theme", `bidi.rtl` "BiDi RTL", `bidi.sessionClock` "Claude Session Clock"), so the status bar's menu can hide them one by one.
 - **Out of scope:** refreshing the OAuth token, weekly limits in the status text (tooltip only), notifications.
 - **Risk:** the endpoint is undocumented and may change; the item then shows `—` with the reason.
 
@@ -241,19 +249,24 @@ A third status-bar item shows when the current 5-hour usage window resets, reque
 
 - Blocks: add and strip each block alone; idempotent; canonical order (`theme` before `rtl`); legacy RTL markers recognized; content outside the markers stays byte-identical.
 - `computeSyncedCss`: every combination of enabled flags; toggling one module leaves the other's block unchanged.
-- Health: missing class prefixes and JS hooks reported; a damaged file (no `html{--app-`) reported.
-- `theme.css` lint: every style rule's selectors start with `body.vscode-dark`; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`.
+- Health: missing class prefixes (only right after a dot) and JS hooks reported; a damaged file (no `html{--app-`) reported; an unreadable file reported instead of rejecting; a healthy report has no warning; every class prefix and attribute hook in `css/theme.css` is on the required lists.
+- `theme.css` lint: every style rule's selectors start with `body.vscode-dark`; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`; no block markers, `!important` or `data-fit-stage`; `url()` in any quoting style points at a declared asset. Both CSS files are free of hashed class names.
+- Session clock: response parsing, formatting (rounded times), the fixed error texts (including HTTP 401 and a locked keychain), and that no error carries the token or the response.
+
+### activate() (mocha, fake host)
+
+A `--require` hook (`out/test/setup.js`) maps `require('vscode')` to a small fake (status items, commands, `globalState`, window focus, `extensions.getExtension`/`onDidChange`, toasts with scripted answers). A fake clock drives the timers and `Date`, and `activate()` takes the clock's token and usage source as an optional argument, so the tests pass fakes; as a backstop, the hook makes the `security` tool and `fetch()` refuse to run. Covered: the 0.0.3 → 0.1.0 upgrade; theme off/on (block and fonts); the health warning once per version and only while the theme is on, for unreadable files too, and the remembered healthy verdict; quick double toggles; the font error label; distinct status ids and names; a failed activation handing over what it created; the clock's one-time question (asked once across activations, Enable, Not now, dismissal, never awaited, an answer after closing); pause after denial and resume on click or toggle; a toggle-off from another window, on focus and while paused; focused-window polling; focus showing the last result as of now; a toggle-off during a refresh; and disposal clearing the timers, listeners and commands.
 
 ### Integration (temp directories)
 
-- Fonts are copied along with the theme block and deleted when the theme is off.
-- Cleanup strips both blocks and our fonts from every install, including symlinked folders.
+- Fonts are copied along with the theme block (byte for byte, again when their bytes change, not again when identical) and deleted when the theme is off, only after the CSS write; a font that cannot be deleted is reported while the CSS still syncs.
+- Cleanup strips both blocks and our fonts from every install, including symlinked folders; an install with only our fonts counts as cleaned; an unreadable install or an undeletable font is reported without stopping the others.
 - Missing or damaged files don't throw.
 
 ### Visual
 
-- A fixture page reproduces the DOM shapes above: a user row, assistant text, a run of tool rows with success and failure dots, a thinking row, and the composer with its footer. It loads Claude Code's real `index.css` with the synced blocks and is rendered in headless Chrome.
-- Screenshot it with `<body class="vscode-dark">` and compare against the mockup, then with `vscode-light` to confirm nothing changes.
+- A fixture page reproduces the DOM shapes above: a user row, assistant text, a run of tool rows with success and failure dots, a thinking row, a tool row that also holds an empty text block, and the composer with its footer, plus a second composer with the states one footer cannot show at once (a cold cache timer, a send button whose permission mode the page switches, and the model pill on its own row). It loads Claude Code's real `index.css` with the synced blocks and is rendered in headless Chrome. Before rendering, every class in the page must exist in that `index.css`.
+- Screenshot it with `<body class="vscode-dark">` and compare against the mockup; checks include the 680px column matching the input box, the flat cache timer (error color when cold) and selection chip, the per-mode send colors, and the ghost model pill and context pie. Then with `vscode-light`, which keeps the Dark Modern variables and so checks scoping only: no theme font, colors, sizes, column or footer order.
 
 ### Manual (VS Code Insiders, by the user)
 
