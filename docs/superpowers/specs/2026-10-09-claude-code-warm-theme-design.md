@@ -24,7 +24,7 @@ A fixed reskin of the Claude Code webview — "Warm reading" — shipped as a se
 | Topic | Decision |
 |---|---|
 | Visual direction | A, "calm reading": warm dark palette, 15px text, 1.75 line height, full-width messages |
-| Input box | A1, "single tidy row": 28px filled buttons, actions left / status right, 34px round send |
+| Input box | A1, "single tidy row": 34px filled buttons, actions left / status right, 40px round send (composer 1.2x bigger, changed 2026-10-10 at the user's request) |
 | Font | Rubik (SIL OFL 1.1), bundled with the extension |
 | Themes | Dark themes only (`body.vscode-dark`); light and high-contrast untouched |
 | Settings | On/off toggle only; the design is fixed in code |
@@ -33,7 +33,7 @@ A fixed reskin of the Claude Code webview — "Warm reading" — shipped as a se
 ## Scope
 
 - **In scope:** the conversation (user messages, assistant text, tool and thinking rows), the composer, and the palette for every other surface (menus, permission card, session list, dialogs, banners) through Claude Code's `--app-*` tokens.
-- **Out of scope:** Monaco diff colors; light and high-contrast themes; settings beyond the toggle; translating Claude Code's UI labels; JS patching; moving the composer dock or changing its outer spacing.
+- **Out of scope:** Monaco diff colors; light and high-contrast themes; settings beyond the toggle; translating Claude Code's UI labels; JS patching; moving the composer dock or changing its outer spacing (its max-width alone is widened).
 
 ---
 
@@ -183,7 +183,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 
 ### Layout
 
-- **Width:** messages use the panel's full width, as in Claude Code's default; the composer keeps Claude Code's native centered 680px. (Changed on 2026-10-10 at the user's request: the first version had a 680px reading column for the messages too, and the mockup still draws it.)
+- **Width:** messages use the panel's full width, as in Claude Code's default; the composer is centered at max 816px (1.2x the native 680px; changed 2026-10-10). (Changed on 2026-10-10 at the user's request: the first version had a 680px reading column for the messages too, and the mockup still draws it.)
 
 ### Components
 
@@ -200,12 +200,14 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
 - The dots stay where Claude Code draws them (physical left, inside the group). The connecting line is re-scoped to the group: on the first row it starts at the dot, on the last row it ends at the dot, using the same first/last selectors. Claude Code's run-based line rules peak at specificity (0,4,1); the group rules are more specific.
 - Any non-ACT row (assistant text, user row, meta rows) ends a group.
 
-**Composer (A1):**
+**Composer (A1):** scaled 1.2x on 2026-10-10 at the user's request; the messages are untouched.
 
-- Box: `body.vscode-dark fieldset[class*="inputContainer_"] { --corner-radius-large: 16px }`. The background layer inherits the same radius, and colors come from the tokens. The existing `:focus-within` rules keep their permission-mode ring colors.
+- Width: `max-width: 816px` (native 680px) on the dock `[class*="chatContainer_"] > [class*="inputContainer_"]`, `[class*="inputWrapper_"]` and `[class*="permissionsContainer_"]`. Only max-width changes, never the dock's position, offsets, margin or padding (a ResizeObserver measures it). No `zoom` or `transform`.
+- Input text: `font-size: calc(var(--vscode-chat-font-size) * 1.2)` (18px) on the fieldset, so the transparent `[role="textbox"]` and the visible `[class*="mentionMirror_"]` layers inherit it together (Claude Code sets no font-size on either).
+- Box: `body.vscode-dark fieldset[class*="inputContainer_"] { --corner-radius-large: 18px }`. The background layer inherits the same radius, and colors come from the tokens. The existing `:focus-within` rules keep their permission-mode ring colors.
 - Text layers: no padding or position changes, so the placeholder's physical offsets stay correct.
-- The footer gets a 6px gap between items.
-- Footer buttons — add (`button[title="Add"]`), command menu (`button[class*="menuButton_"]`), `button[class*="footerButton_"]` and pills (`button[class*="modelPill_"]`): min-height 28px, padding 0 10px, radius 9px, 12.5px text (the icon buttons are 30×28px). Filled `#2f2b26` with `#ddd4c6` text (9.6:1). The mode selector, the model pill and the context pie (`button[class*="usageButtonV2_"]`, 30×28px) use a ghost style instead: transparent fill and a 1px `#453e35` border.
+- The footer gets a 7px gap between items.
+- Footer buttons — add (`button[title="Add"]`), command menu (`button[class*="menuButton_"]`), `button[class*="footerButton_"]` and pills (`button[class*="modelPill_"]`): min-height 34px, padding 0 12px, radius 11px, 15px text (the icon buttons are 36×34px, radius 11px). Filled `#2f2b26` with `#ddd4c6` text (9.6:1). The mode selector, the model pill and the context pie (`button[class*="usageButtonV2_"]`, 36×34px) use a ghost style instead: transparent fill and a 1px `#453e35` border.
 - Only buttons: the cache timer and the selection chip are spans that reuse `footerButton_`, and they keep Claude Code's flat look (no fill, no hover), including the timer's error color when the prompt cache is cold.
 - At the narrowest fit stage Claude Code moves the model pill to its own row below the footer (`[class*="modelPillRow_"] > button[class*="modelPill_"]`); it keeps the same size and ghost style there.
 - Order (`order` on direct children of `[class*="inputFooter_"]`):
@@ -221,7 +223,7 @@ Both background tokens get the panel color, so the sidebar and the editor tab lo
   | send | `> button[type="submit"][class*="sendButton_"]` | 4 |
 
   Result: actions on the left, status on the right, send last.
-- Send (`button[type="submit"][class*="sendButton_"]`): 34×34px, radius 50%. Colors stay Claude Code's (default clay orange with an ivory icon, and the per-mode variants). Plan, bypass and auto paint the button and icon with `--app-button-foreground`, so on the send button in those modes the theme sets it back to `var(--vscode-button-foreground)`.
+- Send (`button[type="submit"][class*="sendButton_"]`): 40×40px, radius 50%. Colors stay Claude Code's (default clay orange with an ivory icon, and the per-mode variants). Plan, bypass and auto paint the button and icon with `--app-button-foreground`, so on the send button in those modes the theme sets it back to `var(--vscode-button-foreground)`.
 
 **Other surfaces** (menus, permission card, session list, dialogs, banners): palette through tokens only.
 
@@ -266,7 +268,7 @@ A `--require` hook (`out/test/setup.js`) maps `require('vscode')` to a small fak
 ### Visual
 
 - A fixture page reproduces the DOM shapes above: a user row, assistant text, a run of tool rows with success and failure dots, a thinking row, a tool row that also holds an empty text block, and the composer with its footer, plus a second composer with the states one footer cannot show at once (a cold cache timer, a send button whose permission mode the page switches, and the model pill on its own row). It loads Claude Code's real `index.css` with the synced blocks and is rendered in headless Chrome. Before rendering, every class in the page must exist in that `index.css`.
-- Screenshot it with `<body class="vscode-dark">` and compare against the mockup; checks include full-width messages with the input box at its native 680px, the flat cache timer (error color when cold) and selection chip, the per-mode send colors, and the ghost model pill and context pie. Then with `vscode-light`, which keeps the Dark Modern variables and so checks scoping only: no theme font, colors, sizes or footer order.
+- Screenshot it with `<body class="vscode-dark">` and compare against the mockup; checks include full-width messages with the input box at 816px with 18px input text (messages stay 15px), 34px footer buttons and a 40px send, the flat cache timer (error color when cold) and selection chip, the per-mode send colors, and the ghost model pill and context pie. Then with `vscode-light`, which keeps the Dark Modern variables and so checks scoping only: no theme font, colors, sizes or footer order.
 
 ### Manual (VS Code Insiders, by the user)
 

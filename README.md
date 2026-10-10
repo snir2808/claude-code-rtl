@@ -22,7 +22,7 @@ extension fixes that at the source.
 
 - A warm palette that meets WCAG AA contrast, with 15px Rubik text and roomier line spacing.
 - Your messages as soft blocks; tool calls grouped into quiet boxes.
-- A roomier input box: bigger buttons, actions on the left, status on the right.
+- A roomier input box (1.2x bigger than Claude Code's: 816px wide, 18px text, bigger buttons; changed 2026-10-10 at the user's request): actions on the left, status on the right.
 
 Light and high-contrast themes are left untouched.
 

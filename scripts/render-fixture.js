@@ -182,14 +182,14 @@ function check(mode, r) {
     expect(r.fontsLoaded >= 2, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 2)`);
     expect(r.textFont.startsWith('"BiDi Rubik"'), `text font: ${r.textFont}`);
     expect(r.textSize === '15px', `text size: ${r.textSize}`);
-    expect(r.inputSize === '15px', `input size: ${r.inputSize}`);
+    expect(r.inputSize === '18px', `input size (1.2x the 15px messages): ${r.inputSize}`);
     expect(r.inputFont === r.mirrorFont && r.inputSize === r.mirrorSize, 'input and mirror layers differ');
     expect(r.panelBg === 'rgb(27, 26, 24)', `panel background: ${r.panelBg}`);
     expect(r.userBg === 'rgb(38, 35, 32)', `user message background: ${r.userBg}`);
     expect(r.groupBg === 'rgb(33, 31, 28)', `tool group background: ${r.groupBg}`);
     expect(r.turnWidth === r.messagesContentWidth && r.turnWidth > 680, `turn width: ${r.turnWidth} (want the full ${r.messagesContentWidth})`);
-    expect(r.inputBoxWidth === 680, `input box width: ${r.inputBoxWidth} (want Claude Code's native 680)`);
-    expect(r.sendSize === 34, `send button: ${r.sendSize}px`);
+    expect(r.inputBoxWidth === 816, `input box width: ${r.inputBoxWidth} (want 816, 1.2x Claude Code's native 680)`);
+    expect(r.sendSize === 40, `send button: ${r.sendSize}px`);
     expect(r.footerOrder === '0,0,2,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
     expect(r.coldCacheColor === 'rgb(248, 81, 73)', `cold cache timer: ${r.coldCacheColor} (want the error color)`);
     expect(
@@ -201,23 +201,25 @@ function check(mode, r) {
     }
     for (const [name, b] of [['model pill on its own row', r.rowPill], ['context pie', r.pie]]) {
       expect(
-        b.height === 28 && b.background === 'rgba(0, 0, 0, 0)' && b.border === '1px solid rgb(69, 62, 53)' && b.radius === '9px',
-        `${name}: ${JSON.stringify(b)} (want the 28px ghost button)`
+        b.height === 34 && b.background === 'rgba(0, 0, 0, 0)' && b.border === '1px solid rgb(69, 62, 53)' && b.radius === '11px',
+        `${name}: ${JSON.stringify(b)} (want the 34px ghost button)`
       );
     }
-    expect(r.pie.width === 30, `context pie width: ${r.pie.width}`);
+    expect(r.pie.width === 36, `context pie width: ${r.pie.width}`);
     expect(/^30px (?!none$)/.test(r.toolWithText), `tool row with an empty text block: ${r.toolWithText}`);
   } else {
     // Only the body class differs from the dark page, so these check that nothing of the theme applies.
     expect(r.fontsLoaded === 0, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 0)`);
     expect(!r.textFont.includes('BiDi Rubik'), `light theme uses the theme font: ${r.textFont}`);
     expect(r.textSize !== '15px', `light theme uses the theme text size: ${r.textSize}`);
+    expect(r.inputSize !== '18px', `light theme uses the theme input size: ${r.inputSize}`);
+    expect(r.inputBoxWidth === 680, `light theme keeps the native input box: ${r.inputBoxWidth} (want the native 680)`);
     expect(r.panelBg !== 'rgb(27, 26, 24)', 'light theme uses the theme panel color');
     expect(r.userBg !== 'rgb(38, 35, 32)', 'light theme uses the theme user-message color');
     expect(r.groupBg !== 'rgb(33, 31, 28)', 'light theme uses the theme tool-group color');
-    expect(r.sendSize !== 34, `light theme uses the theme send button: ${r.sendSize}px`);
+    expect(r.sendSize !== 40, `light theme uses the theme send button: ${r.sendSize}px`);
     expect(/^0(,0)*$/.test(r.footerOrder), `footer order: ${r.footerOrder} (want all 0)`);
-    expect(r.pie.radius !== '9px' && r.rowPill.radius !== '9px', 'light theme uses the theme footer buttons');
+    expect(r.pie.radius !== '11px' && r.rowPill.radius !== '11px', 'light theme uses the theme footer buttons');
   }
   return problems;
 }

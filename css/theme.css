@@ -172,12 +172,22 @@ display:none;
 
 /* Composer: a rounder box, roomier buttons, status on the right. Its outer
    size and position are measured by Claude Code, so they stay untouched.
-   The box and its background layer both read --corner-radius-large. */
+   The box and its background layer both read --corner-radius-large.
+   Everything here is 1.2x the first version. The dock and its two inner
+   wrappers get a wider max-width (680px natively) and nothing else; the
+   font size sits on the fieldset so the transparent text layer and the
+   visible mirror layer inherit it together. */
+body.vscode-dark [class*="chatContainer_"]>[class*="inputContainer_"],
+body.vscode-dark [class*="inputWrapper_"],
+body.vscode-dark [class*="permissionsContainer_"]{
+max-width:816px;
+}
 body.vscode-dark fieldset[class*="inputContainer_"]{
---corner-radius-large:16px;
+--corner-radius-large:18px;
+font-size:calc(var(--vscode-chat-font-size) * 1.2);
 }
 body.vscode-dark [class*="inputFooter_"]{
-gap:6px;
+gap:7px;
 }
 /* Footer buttons only: the cache timer and the selection chip reuse
    footerButton_ on spans that Claude Code keeps flat, and the timer turns
@@ -186,20 +196,20 @@ gap:6px;
 body.vscode-dark [class*="inputFooter_"] button[title="Add"],
 body.vscode-dark [class*="inputFooter_"] button[class*="menuButton_"],
 body.vscode-dark [class*="inputFooter_"] button[class*="usageButtonV2_"]{
-width:30px;
-height:28px;
+width:36px;
+height:34px;
 padding:0;
-border-radius:9px;
+border-radius:11px;
 background:#2f2b26;
 color:#ddd4c6;
 }
 body.vscode-dark [class*="inputFooter_"] button[class*="footerButton_"],
 body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"],
 body.vscode-dark [class*="modelPillRow_"] button[class*="modelPill_"]{
-min-height:28px;
-padding:0 10px;
-border-radius:9px;
-font-size:12.5px;
+min-height:34px;
+padding:0 12px;
+border-radius:11px;
+font-size:15px;
 background:#2f2b26;
 color:#ddd4c6;
 }
@@ -239,8 +249,8 @@ body.vscode-dark [class*="inputFooter_"]>button[type="submit"][class*="sendButto
 order:4;
 }
 body.vscode-dark [class*="inputFooter_"] button[type="submit"][class*="sendButton_"]{
-width:34px;
-height:34px;
+width:40px;
+height:40px;
 border-radius:50%;
 }
 /* Send keeps Claude Code's per-mode colors: in these modes it paints the
