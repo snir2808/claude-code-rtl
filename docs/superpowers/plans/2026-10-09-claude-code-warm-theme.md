@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-10-09-claude-code-warm-theme-design.md`. Mockup: `docs/superpowers/specs/assets/2026-10-09-warm-theme-mockup.html`.
-- Repo `/Users/snirhakmoun/vscode-bidi-flipper`, branch `feat/warm-theme`. Run every command from the repo root.
+- Repo `~/vscode-bidi-flipper`, branch `feat/warm-theme`. Run every command from the repo root.
 - No new dependencies (runtime or dev). Scripts use Node built-ins only.
 - Markers: RTL `/* bidi-rtl-patch-start */` … `/* bidi-rtl-patch-end */` (unchanged); theme `/* bidi-theme-patch-start */` … `/* bidi-theme-patch-end */`.
 - Canonical block order: `theme`, then `rtl`.
@@ -791,7 +791,7 @@ Expected: `56 passing`.
 
 ```bash
 node -e "
-require('./out/health').checkInstallHealth('/Users/snirhakmoun/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64')
+require('./out/health').checkInstallHealth('~/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64')
   .then((r) => console.log(JSON.stringify(r)));
 "
 ```
@@ -1522,13 +1522,13 @@ fixture-out/**
 
 - [ ] **Step 4: Run the fixture**
 
-Run: `npm run fixture -- "/Users/snirhakmoun/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64"`
+Run: `npm run fixture -- "~/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64"`
 Expected:
 
 ```
 dark: ok
 light: ok
-screenshots: /Users/snirhakmoun/vscode-bidi-flipper/fixture-out
+screenshots: ~/vscode-bidi-flipper/fixture-out
 ```
 
 If `dark` fails with `text font`, `text size` or `input size`, Claude Code no longer sizes those elements from `body`. Add this rule to the end of `css/theme.css`, run `npm test` (the rules test must still pass) and run the fixture again:
@@ -2087,7 +2087,7 @@ Expected: `46 passing`, then `no legacy references`.
 
 - [ ] **Step 8: Re-run the fixture (sync code changed underneath it)**
 
-Run: `npm run fixture -- "/Users/snirhakmoun/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64"`
+Run: `npm run fixture -- "~/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64"`
 Expected: `dark: ok` and `light: ok`.
 
 - [ ] **Step 9: Commit**
@@ -2838,7 +2838,7 @@ Expected: `Extension 'vscode-bidi-rtl-0.1.0.vsix' was successfully installed.`
 Ask the user to run **Developer: Reload Window** in VS Code Insiders, then:
 
 ```bash
-C=/Users/snirhakmoun/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64/webview
+C=~/.vscode-insiders/extensions/anthropic.claude-code-2.1.287-darwin-arm64/webview
 grep -c 'bidi-theme-patch-start' $C/index.css; grep -c 'bidi-rtl-patch-start' $C/index.css; ls $C | grep bidi-theme
 ```
 
