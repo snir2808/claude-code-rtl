@@ -24,6 +24,9 @@ extension fixes that at the source.
 - Your messages as soft blocks; tool calls grouped into quiet boxes.
 - A roomier input box (1.2x bigger than Claude Code's: 816px wide, 18px text, bigger buttons; changed 2026-10-10 at the user's request): actions on the left, status on the right.
 
+The "Thinking" label stays left-to-right inside the RTL conversation, and the cache timer, the
+selection chip and the agents pill use the same 15px text as the footer buttons.
+
 Light and high-contrast themes are left untouched.
 
 ### Session clock
@@ -31,14 +34,16 @@ Light and high-contrast themes are left untouched.
 A status-bar item, `⏱ 17:42 · 42%`, shows when your current 5-hour Claude usage window resets
 and how much of it you've used. Hover for the weekly window; click to refresh.
 
-The clock is off until you turn it on. The first time the extension starts, it asks once:
+The clock is off until you turn it on. The first time the extension starts, it asks once, from whichever window has focus (a window
+that starts in the background waits until you switch to it, so you are never asked twice):
 
 > BiDi: Show when your Claude 5-hour session resets in the status bar? It reads Claude Code's
 > sign-in from the macOS Keychain and asks Anthropic for your usage.
 
 **Enable** turns it on. **Not now**, or closing the message, leaves it off: nothing is read and
 nothing is sent. `BiDi Usage: Toggle Session Clock On/Off` turns it on or off at any time, and off
-stops all Keychain and network access.
+stops all Keychain and network access. Clicking the clock while it is off says so and offers a
+**Turn on** button. An idle account with no active 5-hour window shows `—`, not an error.
 
 It asks Anthropic's usage endpoint (the one Claude Code itself uses) with the login Claude Code
 already stored on your machine: the macOS Keychain entry `Claude Code-credentials`, or
@@ -77,7 +82,7 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 | `BiDi RTL: Toggle RTL On/Off` | Turns RTL on or off (remembered across restarts). Also the **RTL** button in the status bar. |
 | `BiDi Theme: Toggle Warm Theme On/Off` | Turns the theme on or off (remembered across restarts). Also the **Theme** button in the status bar. |
 | `BiDi Usage: Toggle Session Clock On/Off` | Shows or hides the session clock. Off means no Keychain reads and no network requests. |
-| `BiDi Usage: Refresh Session Clock` | Refreshes the clock now (same as clicking it). |
+| `BiDi Usage: Refresh Session Clock` | Refreshes the clock now (same as clicking it). While the clock is off it offers to turn it on. |
 | `BiDi RTL: Apply RTL Patch to Claude Code` | Turns RTL on. |
 | `BiDi RTL: Remove RTL Patch` | Turns RTL off. |
 
