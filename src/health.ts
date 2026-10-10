@@ -7,7 +7,7 @@ import * as path from 'path';
  * here (src/test/theme-css.test.ts checks that), plus what the blocks reach
  * without naming it (turn_ holds each conversation turn's rows,
  * inputContainerBackground_ paints the composer's rounded corners) and
- * toolUse_, which css/rtl.css keeps left-to-right.
+ * toolUse_ and thinkingSummary_, which css/rtl.css keeps left-to-right.
  */
 export const REQUIRED_CLASS_PREFIXES: readonly string[] = [
   'messagesContainer_',
@@ -16,6 +16,7 @@ export const REQUIRED_CLASS_PREFIXES: readonly string[] = [
   'userMessage_',
   'root_',
   'toolUse_',
+  'thinkingSummary_',
   'toolNameText_',
   'codeBlockWrapper_',
   'chatContainer_',
@@ -26,6 +27,7 @@ export const REQUIRED_CLASS_PREFIXES: readonly string[] = [
   'inputFooter_',
   'footerButton_',
   'footerButtonPrimary_',
+  'footerButtonStatic_',
   'usageButtonV2_',
   'pill_',
   'modelPill_',

@@ -213,6 +213,14 @@ font-size:15px;
 background:#2f2b26;
 color:#ddd4c6;
 }
+/* The flat spans (cache timer, selection chip, remote/agents pill) size
+   themselves .85em, which would compute to 15.3px under the 18px fieldset;
+   the text buttons are 15px. Font size only: they stay flat. */
+body.vscode-dark [class*="inputFooter_"] span[data-cache-window],
+body.vscode-dark [class*="inputFooter_"] span[class*="footerButtonStatic_"],
+body.vscode-dark [class*="inputFooter_"] [class*="pill_"]{
+font-size:15px;
+}
 /* Ghost buttons: the mode selector, the model pill and the context pie. */
 body.vscode-dark [class*="inputFooter_"]>:has(>button[class*="footerButtonPrimary_"])>button,
 body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"],

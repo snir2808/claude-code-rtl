@@ -75,6 +75,8 @@ html,body{height:100%;margin:0}
 <div style="height:150px"></div>
 </div>
 <div class="inputContainer_07S1Yg">
+<!-- Claude Code renders a permission dialog here, a sibling of the composer, in the same dock. -->
+<div id="permissions" class="permissionsContainer_07S1Yg">Allow this edit?</div>
 <div>
 <div class="inputWrapper_cKsPxg">
 <form>
@@ -108,6 +110,7 @@ html,body{height:100%;margin:0}
   <div class="inputContainerBackground_cKsPxg"></div>
   <div class="inputFooter_gGYT1w inputFooterV2_gGYT1w" data-fit-stage="2">
     <div class="host_v41KHw host_a_iRsA"><span id="cold-cache" class="footerButton_gGYT1w footerButtonPrimary_gGYT1w indicator_a_iRsA cold_a_iRsA" data-cache-window="cold">cold</span></div>
+    <span id="agents-pill" class="pill_jamplw">2 agents</span>
     <div class="spacer_gGYT1w"></div>
     <button id="mode-send" class="sendButton_gGYT1w" type="submit" data-permission-mode="plan" aria-label="Send message"><span class="sendIcon_gGYT1w">↑</span></button>
   </div>
@@ -160,6 +163,14 @@ document.fonts.ready.then(() => {
     panelBg: cs('[class*="messagesContainer_"]').backgroundColor,
     userBg: cs('[class*="userMessage_"]').backgroundColor,
     groupBg: cs('[aria-label="Claude, Read"]').backgroundColor,
+    thinkingSummaryDirection: cs('[class*="thinkingSummary_"]').direction,
+    flatSpanSizes: ['#cold-cache', '[data-cache-window]', '[class*="footerButtonStatic_"]', '#agents-pill']
+      .map((selector) => cs(selector).fontSize),
+    footerButtonSize: cs('[class*="inputFooter_"] button[class*="footerButton_"]').fontSize,
+    userBubbleWidth: Math.round(q('[class*="userMessage_"]').getBoundingClientRect().width),
+    messagesWidth: Math.round(q('[class*="messagesContainer_"]').getBoundingClientRect().width),
+    viewportWidth: document.documentElement.clientWidth,
+    permissionsWidth: Math.round(q('[class*="permissionsContainer_"]').getBoundingClientRect().width),
     turnWidth: Math.round(q('[class*="turn_"]').getBoundingClientRect().width),
     messagesContentWidth: (() => {
       const mc = q('[class*="messagesContainer_"]');

@@ -10,6 +10,7 @@ const http = require('http');
 const { spawn } = require('child_process');
 const { computeSyncedCss, loadBlockBodies } = require('../out/sync');
 const { THEME } = require('../out/features');
+const { checkInstallHealth, formatHealthWarning, isHealthy } = require('../out/health');
 
 const ROOT = path.join(__dirname, '..');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -188,6 +189,14 @@ function check(mode, r) {
     expect(r.userBg === 'rgb(38, 35, 32)', `user message background: ${r.userBg}`);
     expect(r.groupBg === 'rgb(33, 31, 28)', `tool group background: ${r.groupBg}`);
     expect(r.turnWidth === r.messagesContentWidth && r.turnWidth > 680, `turn width: ${r.turnWidth} (want the full ${r.messagesContentWidth})`);
+    expect(r.userBubbleWidth === r.turnWidth, `user bubble width: ${r.userBubbleWidth} (want the turn's ${r.turnWidth})`);
+    expect(r.messagesWidth === r.viewportWidth, `messages container: ${r.messagesWidth}px (want the viewport's ${r.viewportWidth}px)`);
+    expect(r.thinkingSummaryDirection === 'ltr', `thinking summary direction: ${r.thinkingSummaryDirection} (want ltr)`);
+    expect(
+      r.flatSpanSizes.every((size) => size === '15px') && r.footerButtonSize === '15px',
+      `footer spans ${r.flatSpanSizes.join(', ')} vs buttons ${r.footerButtonSize} (want all 15px)`
+    );
+    expect(r.permissionsWidth === 816, `permissions container width: ${r.permissionsWidth} (want 816)`);
     expect(r.inputBoxWidth === 816, `input box width: ${r.inputBoxWidth} (want 816, 1.2x Claude Code's native 680)`);
     expect(r.sendSize === 40, `send button: ${r.sendSize}px`);
     expect(r.footerOrder === '0,0,2,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
@@ -214,6 +223,7 @@ function check(mode, r) {
     expect(r.textSize !== '15px', `light theme uses the theme text size: ${r.textSize}`);
     expect(r.inputSize !== '18px', `light theme uses the theme input size: ${r.inputSize}`);
     expect(r.inputBoxWidth === 680, `light theme keeps the native input box: ${r.inputBoxWidth} (want the native 680)`);
+    expect(r.permissionsWidth === 680, `light theme keeps the native permissions container: ${r.permissionsWidth} (want 680)`);
     expect(r.panelBg !== 'rgb(27, 26, 24)', 'light theme uses the theme panel color');
     expect(r.userBg !== 'rgb(38, 35, 32)', 'light theme uses the theme user-message color');
     expect(r.groupBg !== 'rgb(33, 31, 28)', 'light theme uses the theme tool-group color');
@@ -237,6 +247,11 @@ async function main() {
   try {
     const css = fs.readFileSync(path.join(claudeDir, 'webview', 'index.css'), 'utf8');
     const page = fs.readFileSync(path.join(__dirname, 'fixture', 'panel.html'), 'utf8');
+    const health = await checkInstallHealth(claudeDir);
+    if (!isHealthy(health)) {
+      throw new Error(`the Claude Code install is not healthy:\n${formatHealthWarning(path.basename(claudeDir), health)}`);
+    }
+    console.log('health check: ok');
     const missing = missingClasses(page, css);
     if (missing.length > 0) {
       throw new Error(`panel.html uses classes this index.css does not define: ${missing.join(', ')}`);

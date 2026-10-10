@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FEATURES, RTL, THEME } from '../features';
+import { REQUIRED_CLASS_PREFIXES } from '../health';
 import { appendBlock, stripBlock } from '../blocks';
 
 const CSS = '.foo{color:red}\n.bar{display:flex}';
@@ -74,6 +75,14 @@ suite('rtl.css', () => {
   test('keeps a single backslash before 2022', () => {
     assert.ok(RTL_CSS.includes('\\2022'));
     assert.ok(!RTL_CSS.includes('\\\\2022'));
+  });
+
+  test('keeps the "Thinking" label LTR but not the thinking text', () => {
+    const ltrRule = RTL_CSS.split('}').find((rule) => rule.includes('[class*="toolUse_"]')) ?? '';
+    assert.ok(ltrRule.includes('[class*="messagesContainer_"] [class*="thinkingSummary_"]'));
+    assert.ok(ltrRule.includes('direction:ltr'));
+    assert.ok(!/thinking_|thinkingContent/.test(withoutComments(RTL_CSS)));
+    assert.ok(REQUIRED_CLASS_PREFIXES.includes('thinkingSummary_'));
   });
 
   test('uses text-align:start and matches the input by role and label', () => {

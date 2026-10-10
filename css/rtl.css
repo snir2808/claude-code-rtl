@@ -35,10 +35,12 @@ unicode-bidi:normal;
 [class*="messagesContainer_"] ul:not([class])>li:not([class])::marker{
 content:"\2022  ";
 }
-/* Buttons, tool blocks, editors and code stay LTR. */
+/* Buttons, tool blocks, editors and code stay LTR, and so does the
+   "Thinking" label (only the label: the thinking text may be Hebrew). */
 [class*="messagesContainer_"] [class*="button_"],
 [class*="messagesContainer_"] [class*="sendButton_"],
 [class*="messagesContainer_"] [class*="toolUse_"],
+[class*="messagesContainer_"] [class*="thinkingSummary_"],
 [class*="messagesContainer_"] [class*="toolResult_"],
 [class*="messagesContainer_"] [class*="toolReference_"],
 [class*="messagesContainer_"] [class*="diffEditor"],
