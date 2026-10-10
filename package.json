@@ -47,7 +47,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "rm -rf out && npm run compile",
+    "vscode:prepublish": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && npm run compile",
     "vscode:uninstall": "node ./out/uninstall",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",

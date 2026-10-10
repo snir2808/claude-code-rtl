@@ -346,3 +346,17 @@ suite('usage — credentials file', () => {
     });
   });
 });
+
+suite('test backstop', () => {
+  test('starting a process is refused unless a test opts in', () => {
+    const childProcess = require('child_process') as typeof import('child_process');
+    for (const name of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'] as const) {
+      assert.throws(() => (childProcess[name] as (...args: unknown[]) => unknown)('true'), /must not start processes/, name);
+    }
+  });
+
+  test('the home folder is a temp folder, not the real one', () => {
+    assert.ok(os.homedir().startsWith(os.tmpdir()), os.homedir());
+    assert.deepStrictEqual(fs.readdirSync(os.homedir()), []);
+  });
+});
