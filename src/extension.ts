@@ -163,14 +163,19 @@ export async function activate(
     usageItem.show();
   };
 
+  // Versions found healthy in this activation: every sync would otherwise
+  // read Claude Code's index.js (megabytes) again.
+  const healthyVersions = new Set<string>();
+
   // At most one warning per Claude Code version; the toast is never awaited.
   const warnIfUnhealthy = async (ext: vscode.Extension<unknown>): Promise<void> => {
     const version = String(ext.packageJSON?.version ?? 'unknown');
-    if (context.globalState.get<string>(LAST_WARNED_KEY) === version) {
+    if (healthyVersions.has(version) || context.globalState.get<string>(LAST_WARNED_KEY) === version) {
       return;
     }
     const report = await checkInstallHealth(ext.extensionPath);
     if (isHealthy(report)) {
+      healthyVersions.add(version);
       return;
     }
     await context.globalState.update(LAST_WARNED_KEY, version);

@@ -230,6 +230,25 @@ suite('extension — activate()', () => {
       await start(context.globalState);
       assert.strictEqual(texts('warning').length, 2);
     });
+
+    test('an unreadable index.js gets the once-per-version warning', async () => {
+      await installClaudeCode('2.1.302', HEALTHY_CSS, null);
+      await start();
+      assert.strictEqual(texts('warning').length, 1);
+      assert.ok(texts('warning')[0].includes('webview/index.js'), texts('warning')[0]);
+    });
+
+    test('a healthy verdict lasts the activation, so later syncs do not read index.js again', async () => {
+      const dir = await installClaudeCode('2.1.287');
+      const context = await start();
+      await fs.promises.writeFile(path.join(dir, 'webview', 'index.js'), 'nothing the theme needs');
+      await fake.extensionsChanged();
+      assert.deepStrictEqual(texts('warning'), []);
+
+      stop(context); // a new activation checks again
+      await start(context.globalState);
+      assert.strictEqual(texts('warning').length, 1);
+    });
   });
 
   suite('session clock', () => {

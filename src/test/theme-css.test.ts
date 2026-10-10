@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { THEME } from '../features';
+import { REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -115,5 +116,54 @@ suite('theme.css — assets', () => {
 
   test('the Rubik license ships with the fonts', () => {
     assert.ok(fs.readFileSync(path.join(ROOT, 'fonts', 'OFL.txt'), 'utf8').includes('SIL OPEN FONT LICENSE'));
+  });
+});
+
+interface AttributeSelector {
+  name: string;
+  value: string | null;
+}
+
+/** Every attribute selector in the style rules' selectors: [name], [name="value"], [name^="value"]… */
+function attributeSelectors(css: string): AttributeSelector[] {
+  const found: AttributeSelector[] = [];
+  for (const rule of topLevelRules(css).filter((r) => !r.prelude.startsWith('@'))) {
+    for (const m of rule.prelude.matchAll(/\[\s*([\w-]+)\s*(?:[~|^$*]?=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s]+)))?\s*\]/g)) {
+      found.push({ name: m[1], value: m[2] ?? m[3] ?? m[4] ?? null });
+    }
+  }
+  return found;
+}
+
+/**
+ * Attribute values too generic to look for in minified JS. The hook named
+ * here is checked instead.
+ */
+const STAND_INS: Readonly<Record<string, string>> = {
+  '[data-permission-mode="plan"]': 'data-permission-mode',
+  '[data-permission-mode="auto"]': 'data-permission-mode',
+};
+
+suite('theme.css — health check coverage', () => {
+  let selectors: AttributeSelector[];
+
+  suiteSetup(() => {
+    selectors = attributeSelectors(fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8'));
+  });
+
+  test('every class prefix it matches is in REQUIRED_CLASS_PREFIXES', () => {
+    const prefixes = selectors.filter((s) => s.name === 'class').map((s) => String(s.value));
+    assert.ok(prefixes.length > 0);
+    for (const prefix of new Set(prefixes)) {
+      assert.ok(REQUIRED_CLASS_PREFIXES.includes(prefix), `${prefix} is not in REQUIRED_CLASS_PREFIXES`);
+    }
+  });
+
+  test('every other attribute it matches is covered by REQUIRED_JS_HOOKS', () => {
+    for (const { name, value } of selectors.filter((s) => s.name !== 'class')) {
+      const selector = value === null ? `[${name}]` : `[${name}="${value}"]`;
+      const hook = STAND_INS[selector] ?? value ?? name;
+      assert.ok(REQUIRED_JS_HOOKS.some((h) => h.includes(hook)), `${selector} is not covered by REQUIRED_JS_HOOKS`);
+    }
   });
 });
