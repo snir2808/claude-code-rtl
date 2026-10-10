@@ -63,6 +63,10 @@ html,body{height:100%;margin:0}
   <div class="message_07S1Yg timelineMessage_07S1Yg dotSuccess_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, Bash" data-transcript-message>
     <div class="toolUse_uq5aLg"><div class="root_ZUQaOA"><summary class="toolSummary_ZUQaOA"><span><span class="toolNameText_ZUQaOA">Bash</span> <span class="toolNameTextSecondary_ZUQaOA">npm test</span></span></summary><div class="secondaryLine_mLrg7g"><span class="content_mLrg7g">12 passing</span></div></div></div>
   </div>
+  <!-- A tool row whose message also carries an empty text block: it stays a timeline row. -->
+  <div id="tool-with-text" class="message_07S1Yg timelineMessage_07S1Yg dotSuccess_07S1Yg" data-testid="assistant-message" role="article" aria-label="Claude, Grep" data-transcript-message>
+    <span class="root_-a7MRw"></span><div class="toolUse_uq5aLg"><div class="root_ZUQaOA"><summary class="toolSummary_ZUQaOA"><span><span class="toolNameText_ZUQaOA">Grep</span> <span class="toolNameTextSecondary_ZUQaOA">parseConfig</span></span></summary></div></div>
+  </div>
 </div>
 <div style="height:150px"></div>
 </div>
@@ -92,6 +96,20 @@ html,body{height:100%;margin:0}
 </form>
 </div>
 </div>
+<!-- States one composer cannot show at once: a cold cache timer, a send button whose
+     permission mode the report script switches, and the model pill on its own row
+     (Claude Code moves it there at the narrowest footer fit stage). -->
+<div class="inputWrapper_cKsPxg">
+<fieldset class="inputContainer_cKsPxg" data-permission-mode="plan">
+  <div class="inputContainerBackground_cKsPxg"></div>
+  <div class="inputFooter_gGYT1w inputFooterV2_gGYT1w" data-fit-stage="2">
+    <div class="host_v41KHw host_a_iRsA"><span id="cold-cache" class="footerButton_gGYT1w footerButtonPrimary_gGYT1w indicator_a_iRsA cold_a_iRsA" data-cache-window="cold">cold</span></div>
+    <div class="spacer_gGYT1w"></div>
+    <button id="mode-send" class="sendButton_gGYT1w" type="submit" data-permission-mode="plan" aria-label="Send message"><span class="sendIcon_gGYT1w">↑</span></button>
+  </div>
+  <div class="modelPillRow_gGYT1w"><button id="row-pill" class="modelPill_gGYT1w" type="button" role="combobox">Opus</button></div>
+</fieldset>
+</div>
 </div>
 </div>
 </div>
@@ -103,7 +121,31 @@ document.fonts.ready.then(() => {
   const q = (s) => document.querySelector(s);
   const cs = (s) => getComputedStyle(q(s));
   const text = '[data-testid="assistant-message"] > span[class*="root_"]';
+  const box = (s) => {
+    const el = q(s);
+    const style = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return {
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      background: style.backgroundColor,
+      border: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+      radius: style.borderTopLeftRadius,
+    };
+  };
+  const modeSend = q('#mode-send');
+  const modeSendColors = ['plan', 'bypassPermissions', 'auto'].map((mode) => {
+    modeSend.setAttribute('data-permission-mode', mode);
+    return `${mode}: ${getComputedStyle(modeSend).color} / ${getComputedStyle(modeSend.firstElementChild).color}`;
+  });
   const report = {
+    coldCacheColor: cs('#cold-cache').color,
+    flatSpanFills: [...document.querySelectorAll('[data-cache-window], [class*="footerButtonStatic_"]')]
+      .map((el) => getComputedStyle(el).backgroundColor),
+    modeSendColors,
+    rowPill: box('#row-pill'),
+    pie: box('[class*="usageButtonV2_"]'),
+    toolWithText: `${cs('#tool-with-text').paddingLeft} ${getComputedStyle(q('#tool-with-text'), '::before').display}`,
     fontsLoaded: [...document.fonts].filter((f) => f.family.replace(/"/g, '') === 'BiDi Rubik' && f.status === 'loaded').length,
     textFont: cs(text).fontFamily,
     textSize: cs(text).fontSize,

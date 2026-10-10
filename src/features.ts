@@ -22,6 +22,9 @@ export interface Feature {
   readonly toggleCommand: string;
 }
 
+// Both blocks use hash-stable selectors: Claude Code's class names carry a
+// build-hash suffix (e.g. messagesContainer_07S1Yg), so elements are matched
+// by [class*="prefix_"], and the chat input by role + aria-label.
 export const THEME: Feature = {
   id: 'theme',
   label: 'Theme',

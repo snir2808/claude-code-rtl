@@ -1,4 +1,7 @@
 /* Warm reading theme for Claude Code, dark themes only.
+   Claude Code's class names carry a build-hash suffix (e.g.
+   messagesContainer_07S1Yg), so selectors match the stable prefix with
+   [class*="name_"]; rows are matched by data-testid and aria-label.
    Rules (enforced by src/test/theme-css.test.ts): every selector starts with
    body.vscode-dark, only @font-face at top level, and no direction, text-align
    or unicode-bidi (those belong to css/rtl.css). */
@@ -89,12 +92,13 @@ border-radius:14px;
 padding:12px 16px;
 }
 
-/* Claude's text rows: no timeline dot, no line, no 30px gutter. */
-body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"]){
+/* Claude's text rows: no timeline dot, no line, no 30px gutter. A row that
+   also holds a tool call (its aria-label names the tool) stays a timeline row. */
+body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"]):not([aria-label^="Claude, "]){
 padding-left:0;
 }
-body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"])::before,
-body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"])::after{
+body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"]):not([aria-label^="Claude, "])::before,
+body.vscode-dark [class*="timelineMessage_"][data-testid="assistant-message"]:has(>span[class*="root_"]):not([aria-label^="Claude, "])::after{
 display:none;
 }
 
@@ -183,8 +187,13 @@ body.vscode-dark fieldset[class*="inputContainer_"]{
 body.vscode-dark [class*="inputFooter_"]{
 gap:6px;
 }
+/* Footer buttons only: the cache timer and the selection chip reuse
+   footerButton_ on spans that Claude Code keeps flat, and the timer turns
+   red when the prompt cache is cold. At the narrowest fit stage the model
+   pill moves to its own row below the footer. */
 body.vscode-dark [class*="inputFooter_"] button[title="Add"],
-body.vscode-dark [class*="inputFooter_"] [class*="menuButton_"]{
+body.vscode-dark [class*="inputFooter_"] button[class*="menuButton_"],
+body.vscode-dark [class*="inputFooter_"] button[class*="usageButtonV2_"]{
 width:30px;
 height:28px;
 padding:0;
@@ -192,8 +201,9 @@ border-radius:9px;
 background:#2f2b26;
 color:#ddd4c6;
 }
-body.vscode-dark [class*="inputFooter_"] [class*="footerButton_"],
-body.vscode-dark [class*="inputFooter_"] [class*="modelPill_"]{
+body.vscode-dark [class*="inputFooter_"] button[class*="footerButton_"],
+body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"],
+body.vscode-dark [class*="modelPillRow_"] button[class*="modelPill_"]{
 min-height:28px;
 padding:0 10px;
 border-radius:9px;
@@ -201,19 +211,24 @@ font-size:12.5px;
 background:#2f2b26;
 color:#ddd4c6;
 }
+/* Ghost buttons: the mode selector, the model pill and the context pie. */
 body.vscode-dark [class*="inputFooter_"]>:has(>button[class*="footerButtonPrimary_"])>button,
-body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"]{
+body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"],
+body.vscode-dark [class*="modelPillRow_"] button[class*="modelPill_"],
+body.vscode-dark [class*="inputFooter_"] button[class*="usageButtonV2_"]{
 background:transparent;
 border:1px solid #453e35;
 }
 body.vscode-dark [class*="inputFooter_"] button[title="Add"]:hover,
-body.vscode-dark [class*="inputFooter_"] [class*="menuButton_"]:hover,
-body.vscode-dark [class*="inputFooter_"] [class*="footerButton_"]:hover,
-body.vscode-dark [class*="inputFooter_"] [class*="modelPill_"]:hover{
+body.vscode-dark [class*="inputFooter_"] button[class*="menuButton_"]:hover,
+body.vscode-dark [class*="inputFooter_"] button[class*="footerButton_"]:hover,
+body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"]:hover{
 background:#38332c;
 }
 body.vscode-dark [class*="inputFooter_"]>:has(>button[class*="footerButtonPrimary_"])>button:hover,
-body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"]:hover{
+body.vscode-dark [class*="inputFooter_"] button[class*="modelPill_"][role="combobox"]:hover,
+body.vscode-dark [class*="modelPillRow_"] button[class*="modelPill_"]:hover,
+body.vscode-dark [class*="inputFooter_"] button[class*="usageButtonV2_"]:hover{
 background:#2a2622;
 }
 body.vscode-dark [class*="inputFooter_"]>[class*="spacer_"]{
@@ -235,4 +250,12 @@ body.vscode-dark [class*="inputFooter_"] button[type="submit"][class*="sendButto
 width:34px;
 height:34px;
 border-radius:50%;
+}
+/* Send keeps Claude Code's per-mode colors: in these modes it paints the
+   button and its icon with --app-button-foreground, which must stay VS
+   Code's button text color here, not the text-on-accent value above. */
+body.vscode-dark [class*="sendButton_"][data-permission-mode="plan"],
+body.vscode-dark [class*="sendButton_"][data-permission-mode="bypassPermissions"],
+body.vscode-dark [class*="sendButton_"][data-permission-mode="auto"]{
+--app-button-foreground:var(--vscode-button-foreground);
 }

@@ -165,6 +165,22 @@ function check(mode, r) {
     expect(r.turnWidth <= 680, `turn width: ${r.turnWidth}`);
     expect(r.sendSize === 34, `send button: ${r.sendSize}px`);
     expect(r.footerOrder === '0,0,2,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
+    expect(r.coldCacheColor === 'rgb(248, 81, 73)', `cold cache timer: ${r.coldCacheColor} (want the error color)`);
+    expect(
+      r.flatSpanFills.every((fill) => fill === 'rgba(0, 0, 0, 0)'),
+      `cache timer and selection chip fills: ${r.flatSpanFills.join(', ')} (want none)`
+    );
+    for (const colors of r.modeSendColors) {
+      expect(colors.endsWith('rgb(255, 255, 255) / rgb(255, 255, 255)'), `send button and icon, ${colors}`);
+    }
+    for (const [name, b] of [['model pill on its own row', r.rowPill], ['context pie', r.pie]]) {
+      expect(
+        b.height === 28 && b.background === 'rgba(0, 0, 0, 0)' && b.border === '1px solid rgb(69, 62, 53)' && b.radius === '9px',
+        `${name}: ${JSON.stringify(b)} (want the 28px ghost button)`
+      );
+    }
+    expect(r.pie.width === 30, `context pie width: ${r.pie.width}`);
+    expect(/^30px (?!none$)/.test(r.toolWithText), `tool row with an empty text block: ${r.toolWithText}`);
   } else {
     expect(!r.textFont.includes('BiDi Rubik'), `light theme uses the theme font: ${r.textFont}`);
     expect(r.userBg !== 'rgb(38, 35, 32)', 'light theme uses the theme user-message color');
