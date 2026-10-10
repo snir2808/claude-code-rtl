@@ -1,4 +1,8 @@
 <!doctype html>
+<!-- The theme fixture. scripts/render-fixture.js serves it twice: with body class vscode-dark,
+     and with vscode-light to check that none of the theme applies there. The light page keeps
+     the Dark Modern variables below, so it checks the theme's scoping only, not how a light
+     theme looks. Every class here must exist in the index.css under test (the script checks). -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -157,6 +161,7 @@ document.fonts.ready.then(() => {
     userBg: cs('[class*="userMessage_"]').backgroundColor,
     groupBg: cs('[aria-label="Claude, Read"]').backgroundColor,
     turnWidth: Math.round(q('[class*="turn_"]').getBoundingClientRect().width),
+    inputBoxWidth: Math.round(q('fieldset[class*="inputContainer_"]').getBoundingClientRect().width),
     sendSize: Math.round(q('[class*="sendButton_"]').getBoundingClientRect().width),
     footerOrder: [...q('[class*="inputFooter_"]').children].map((el) => getComputedStyle(el).order).join(','),
   };

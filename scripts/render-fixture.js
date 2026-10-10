@@ -1,7 +1,7 @@
-#!/usr/bin/env node
 // Renders scripts/fixture/panel.html against a real Claude Code index.css with
 // both blocks synced, in dark and light mode, checks computed styles and saves
 // screenshots. Usage: node scripts/render-fixture.js <claude-code-extension-dir> [out-dir]
+// Set CHROME_PATH when Chrome is not at the default macOS location.
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -26,10 +26,20 @@ const CHROME_TIMEOUT_MS = 20000;
 const CHROME_POLL_MS = 200;
 const PNG_END = Buffer.from('49454e44ae426082', 'hex'); // IEND chunk type + CRC: the last 8 bytes of every PNG
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.woff2': 'font/woff2' };
+const USAGE = `usage: node scripts/render-fixture.js <claude-code-extension-dir> [out-dir]
+Chrome: ${CHROME} (set CHROME_PATH to use another)`;
 
 function serve(dir) {
   const server = http.createServer((req, res) => {
-    const file = path.join(dir, path.basename(decodeURIComponent(req.url.split('?')[0])));
+    let name;
+    try {
+      name = path.basename(decodeURIComponent(req.url.split('?')[0]));
+    } catch {
+      res.writeHead(400); // a malformed %-escape
+      res.end();
+      return;
+    }
+    const file = path.join(dir, name);
     fs.readFile(file, (err, body) => {
       if (err) {
         res.writeHead(404);
@@ -146,6 +156,21 @@ function chrome(args, isDone, what) {
   });
 }
 
+// The class names in panel.html that the given index.css does not define: a sign that the
+// fixture no longer matches what this Claude Code renders.
+function missingClasses(page, css) {
+  const names = new Set();
+  for (const [, list] of page.matchAll(/class="([^"]*)"/g)) {
+    for (const name of list.split(/\s+/)) {
+      if (name && name !== '__THEME_CLASS__') {
+        names.add(name);
+      }
+    }
+  }
+  const defined = (name) => new RegExp(`\\.${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(css);
+  return [...names].filter((name) => !defined(name));
+}
+
 function check(mode, r) {
   const problems = [];
   const expect = (ok, message) => {
@@ -162,7 +187,8 @@ function check(mode, r) {
     expect(r.panelBg === 'rgb(27, 26, 24)', `panel background: ${r.panelBg}`);
     expect(r.userBg === 'rgb(38, 35, 32)', `user message background: ${r.userBg}`);
     expect(r.groupBg === 'rgb(33, 31, 28)', `tool group background: ${r.groupBg}`);
-    expect(r.turnWidth <= 680, `turn width: ${r.turnWidth}`);
+    expect(r.turnWidth === 680, `turn width: ${r.turnWidth} (want 680)`);
+    expect(r.inputBoxWidth === r.turnWidth, `input box width: ${r.inputBoxWidth} (want the column's ${r.turnWidth})`);
     expect(r.sendSize === 34, `send button: ${r.sendSize}px`);
     expect(r.footerOrder === '0,0,2,2,2,0,0,1,3,4', `footer order: ${r.footerOrder}`);
     expect(r.coldCacheColor === 'rgb(248, 81, 73)', `cold cache timer: ${r.coldCacheColor} (want the error color)`);
@@ -182,8 +208,17 @@ function check(mode, r) {
     expect(r.pie.width === 30, `context pie width: ${r.pie.width}`);
     expect(/^30px (?!none$)/.test(r.toolWithText), `tool row with an empty text block: ${r.toolWithText}`);
   } else {
+    // Only the body class differs from the dark page, so these check that nothing of the theme applies.
+    expect(r.fontsLoaded === 0, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 0)`);
     expect(!r.textFont.includes('BiDi Rubik'), `light theme uses the theme font: ${r.textFont}`);
+    expect(r.textSize !== '15px', `light theme uses the theme text size: ${r.textSize}`);
+    expect(r.panelBg !== 'rgb(27, 26, 24)', 'light theme uses the theme panel color');
     expect(r.userBg !== 'rgb(38, 35, 32)', 'light theme uses the theme user-message color');
+    expect(r.groupBg !== 'rgb(33, 31, 28)', 'light theme uses the theme tool-group color');
+    expect(r.turnWidth !== 680, 'light theme uses the theme reading column');
+    expect(r.sendSize !== 34, `light theme uses the theme send button: ${r.sendSize}px`);
+    expect(/^0(,0)*$/.test(r.footerOrder), `footer order: ${r.footerOrder} (want all 0)`);
+    expect(r.pie.radius !== '9px' && r.rowPill.radius !== '9px', 'light theme uses the theme footer buttons');
   }
   return problems;
 }
@@ -191,40 +226,46 @@ function check(mode, r) {
 async function main() {
   const [claudeDir, outArg] = process.argv.slice(2);
   if (!claudeDir) {
-    console.error('usage: node scripts/render-fixture.js <claude-code-extension-dir> [out-dir]');
+    console.error(USAGE);
     process.exit(2);
   }
   const outDir = path.resolve(outArg || path.join(ROOT, 'fixture-out'));
-  fs.mkdirSync(outDir, { recursive: true });
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'bidi-fixture-'));
-
-  const css = fs.readFileSync(path.join(claudeDir, 'webview', 'index.css'), 'utf8');
-  const synced = computeSyncedCss(css, new Set(['theme', 'rtl']), await loadBlockBodies(ROOT));
-  fs.writeFileSync(path.join(work, 'index.css'), synced);
-  for (const asset of THEME.assets) {
-    fs.copyFileSync(path.join(ROOT, asset.source), path.join(work, asset.target));
-  }
-  const page = fs.readFileSync(path.join(__dirname, 'fixture', 'panel.html'), 'utf8');
-  for (const mode of ['dark', 'light']) {
-    fs.writeFileSync(path.join(work, `${mode}.html`), page.replace('__THEME_CLASS__', `vscode-${mode}`));
-  }
-
-  const server = await serve(work);
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const profile = `--user-data-dir=${path.join(work, 'chrome-profile')}`;
+  let server;
   let failed = false;
   try {
+    const css = fs.readFileSync(path.join(claudeDir, 'webview', 'index.css'), 'utf8');
+    const page = fs.readFileSync(path.join(__dirname, 'fixture', 'panel.html'), 'utf8');
+    const missing = missingClasses(page, css);
+    if (missing.length > 0) {
+      throw new Error(`panel.html uses classes this index.css does not define: ${missing.join(', ')}`);
+    }
+    fs.mkdirSync(outDir, { recursive: true });
+    const synced = computeSyncedCss(css, new Set(['theme', 'rtl']), await loadBlockBodies(ROOT));
+    fs.writeFileSync(path.join(work, 'index.css'), synced);
+    for (const asset of THEME.assets) {
+      fs.copyFileSync(path.join(ROOT, asset.source), path.join(work, asset.target));
+    }
+    for (const mode of ['dark', 'light']) {
+      fs.writeFileSync(path.join(work, `${mode}.html`), page.replace('__THEME_CLASS__', `vscode-${mode}`));
+    }
+
+    server = await serve(work);
+    const base = `http://127.0.0.1:${server.address().port}`;
+    // A fresh profile for every Chrome run, so no run sees another's cache or state.
+    let runs = 0;
+    const profile = () => `--user-data-dir=${path.join(work, `chrome-profile-${++runs}`)}`;
     for (const mode of ['dark', 'light']) {
       const url = `${base}/${mode}.html`;
       const shot = path.join(outDir, `fixture-${mode}.png`);
       fs.rmSync(shot, { force: true }); // a PNG left by an earlier run must not pass for this one
       await chrome(
-        [profile, `--screenshot=${shot}`, url],
+        [profile(), `--screenshot=${shot}`, url],
         () => pngIsComplete(shot),
         `${mode} screenshot, expected a complete PNG at ${shot}`
       );
       const dom = await chrome(
-        [profile, '--dump-dom', url],
+        [profile(), '--dump-dom', url],
         (stdout) => stdout.includes('</html>'),
         `${mode} DOM dump, expected </html> on stdout`
       );
@@ -241,8 +282,11 @@ async function main() {
       failed = failed || problems.length > 0;
     }
   } finally {
-    server.close();
-    fs.rmSync(work, { recursive: true, force: true });
+    if (server) {
+      server.close();
+    }
+    // Chrome was killed moments ago and may still be releasing its profile files.
+    fs.rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
   console.log(`screenshots: ${outDir}`);
   process.exit(failed ? 1 : 0);
