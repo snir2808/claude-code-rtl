@@ -3,9 +3,13 @@ import { cleanupAll } from './cleanup';
 
 export async function main(extensionsRoot: string): Promise<number> {
   try {
-    const count = await cleanupAll(extensionsRoot);
-    console.log(`BiDi RTL & Theme: cleaned ${count} Claude Code install(s).`);
-    return count;
+    const { cleaned, failures } = await cleanupAll(extensionsRoot);
+    const notCleaned = failures.length > 0 ? `; ${failures.length} could not be cleaned` : '';
+    console.log(`BiDi RTL & Theme: cleaned ${cleaned} Claude Code install(s)${notCleaned}.`);
+    for (const failure of failures) {
+      console.log(`BiDi RTL & Theme: could not clean ${failure}`);
+    }
+    return cleaned;
   } catch (err: unknown) {
     console.log(`BiDi RTL & Theme: cleanup failed — ${err instanceof Error ? err.message : String(err)}`);
     return 0;

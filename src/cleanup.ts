@@ -31,7 +31,8 @@ export async function findClaudeCodeCssPaths(extensionsRoot: string): Promise<st
 }
 
 // Strips every block and deletes every asset this extension wrote into one
-// install. Returns true if anything changed.
+// install. Returns true if anything changed. An asset that is already gone is
+// fine; any other failure is thrown once every asset has been tried.
 export async function cleanInstall(cssPath: string): Promise<boolean> {
   let changed = false;
   const content = await fs.promises.readFile(cssPath, 'utf8');
@@ -43,29 +44,47 @@ export async function cleanInstall(cssPath: string): Promise<boolean> {
     await writeFileAtomic(cssPath, cleaned);
     changed = true;
   }
+  const failures: string[] = [];
   for (const feature of FEATURES) {
     for (const asset of feature.assets) {
       try {
         await fs.promises.unlink(path.join(path.dirname(cssPath), asset.target));
         changed = true;
-      } catch {
-        // not there
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException | undefined)?.code !== 'ENOENT') {
+          failures.push(`${asset.target}: ${errorMessage(err)}`);
+        }
       }
     }
+  }
+  if (failures.length > 0) {
+    throw new Error(`could not delete ${failures.join('; ')}`);
   }
   return changed;
 }
 
-export async function cleanupAll(extensionsRoot: string): Promise<number> {
-  let count = 0;
+export interface CleanupResult {
+  /** Installs that had a block or an asset removed. */
+  cleaned: number;
+  /** One line per install that could not be cleaned completely: its folder and the error. */
+  failures: string[];
+}
+
+export async function cleanupAll(extensionsRoot: string): Promise<CleanupResult> {
+  const result: CleanupResult = { cleaned: 0, failures: [] };
   for (const cssPath of await findClaudeCodeCssPaths(extensionsRoot)) {
     try {
       if (await cleanInstall(cssPath)) {
-        count++;
+        result.cleaned++;
       }
-    } catch {
-      // one bad install must not stop the others
+    } catch (err: unknown) {
+      // One bad install must not stop the others.
+      result.failures.push(`${path.dirname(path.dirname(cssPath))}: ${errorMessage(err)}`);
     }
   }
-  return count;
+  return result;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
