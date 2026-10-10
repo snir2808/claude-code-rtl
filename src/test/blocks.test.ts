@@ -7,7 +7,10 @@ import { appendBlock, stripBlock } from '../patcher';
 const CSS = '.foo{color:red}\n.bar{display:flex}';
 const M = { start: '/* x-start */', end: '/* x-end */' };
 const OTHER = { start: '/* y-start */', end: '/* y-end */' };
-const RTL_CSS = fs.readFileSync(path.join(__dirname, '..', '..', 'css', 'rtl.css'), 'utf8');
+const ROOT = path.join(__dirname, '..', '..');
+/** A class name with Claude Code's build-hash suffix, e.g. messagesContainer_07S1Yg or host_a_iRsA. */
+const HASHED_CLASS = /[A-Za-z]+_[\w-]{6}(?![\w-])/;
+const withoutComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 suite('blocks — generic', () => {
   test('appendBlock wraps the trimmed body in markers at the end', () => {
@@ -57,6 +60,12 @@ suite('features — registry', () => {
 });
 
 suite('rtl.css', () => {
+  let RTL_CSS: string;
+
+  suiteSetup(() => {
+    RTL_CSS = fs.readFileSync(path.join(ROOT, RTL.cssFile), 'utf8');
+  });
+
   test('holds only the block body, without markers', () => {
     assert.ok(!RTL_CSS.includes('bidi-rtl-patch'));
     assert.ok(RTL_CSS.includes('[class*="messagesContainer_"]'));
@@ -67,9 +76,26 @@ suite('rtl.css', () => {
     assert.ok(!RTL_CSS.includes('\\\\2022'));
   });
 
-  test('uses text-align:start and hash-free selectors', () => {
+  test('uses text-align:start and matches the input by role and label', () => {
     assert.ok(RTL_CSS.includes('[role="textbox"][aria-label="Message input"]'));
     assert.ok(RTL_CSS.includes('text-align:start;'));
-    assert.ok(!/(messageInput|messagesContainer|userMessage)_[A-Za-z0-9-]{6}/.test(RTL_CSS));
   });
+});
+
+suite('hash-free selectors', () => {
+  test('the guard spots hashed class names and lets prefixes through', () => {
+    for (const hashed of ['messagesContainer_07S1Yg', 'root_-a7MRw', 'host_a_iRsA', '.inputFooter_gGYT1w{']) {
+      assert.ok(HASHED_CLASS.test(hashed), hashed);
+    }
+    for (const prefix of ['[class*="messagesContainer_"]', '[class*="root_"]>p', 'bidi-theme-rubik-hebrew.woff2']) {
+      assert.ok(!HASHED_CLASS.test(prefix), prefix);
+    }
+  });
+
+  for (const feature of [RTL, THEME]) {
+    test(`${feature.cssFile} names no hashed class`, () => {
+      const css = withoutComments(fs.readFileSync(path.join(ROOT, feature.cssFile), 'utf8'));
+      assert.strictEqual(HASHED_CLASS.exec(css), null);
+    });
+  }
 });

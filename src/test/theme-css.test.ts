@@ -73,9 +73,31 @@ function splitSelectors(prelude: string): string[] {
   return parts;
 }
 
+/** The url() references in a stylesheet: unquoted, single- or double-quoted. */
+function urls(css: string): string[] {
+  return [...css.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s'"]+))\s*\)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+}
+
+// Each suite reads the file in suiteSetup, so a missing file fails its tests
+// instead of aborting the whole run while the suites are registered.
 suite('theme.css — rules', () => {
-  const css = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
-  const rules = topLevelRules(css);
+  let css: string;
+  let rules: TopLevelRule[];
+
+  suiteSetup(() => {
+    css = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
+    rules = topLevelRules(css);
+  });
+
+  test('holds only the block body: no block markers', () => {
+    assert.ok(!css.includes('bidi-theme-patch'));
+    assert.ok(!css.includes('bidi-rtl-patch'));
+  });
+
+  test('no !important, and nothing keyed on the footer fit stage', () => {
+    assert.ok(!css.includes('!important'));
+    assert.ok(!css.includes('data-fit-stage'));
+  });
 
   test('the only top-level at-rule is @font-face', () => {
     for (const rule of rules.filter((r) => r.prelude.startsWith('@'))) {
@@ -100,11 +122,22 @@ suite('theme.css — rules', () => {
 });
 
 suite('theme.css — assets', () => {
-  const css = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
+  let css: string;
+
+  suiteSetup(() => {
+    css = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
+  });
+
+  test('url() references are found in every quoting style', () => {
+    assert.deepStrictEqual(urls(`a{src:url(x.woff2)} b{src:url( 'y.woff2' )} c{src:url("z.woff2")}`), [
+      'x.woff2',
+      'y.woff2',
+      'z.woff2',
+    ]);
+  });
 
   test('every url() points at a declared theme asset, and every asset is used', () => {
-    const urls = [...css.matchAll(/url\("([^"]+)"\)/g)].map((m) => m[1]).sort();
-    assert.deepStrictEqual(urls, THEME.assets.map((a) => a.target).sort());
+    assert.deepStrictEqual(urls(css).sort(), THEME.assets.map((a) => a.target).sort());
   });
 
   test('every asset source is a woff2 file', () => {
