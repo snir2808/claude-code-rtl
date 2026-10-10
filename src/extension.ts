@@ -5,12 +5,21 @@ import { getStatusBarState } from './status';
 import { syncInstall } from './sync';
 import {
   CredentialReadError,
+  Usage,
   UsageStatus,
   fetchUsage,
   formatUsageError,
   formatUsageStatus,
   readAccessToken,
 } from './usage';
+
+/** Where the session clock gets the sign-in token and the usage. Tests pass fakes. */
+export interface UsageSource {
+  readAccessToken(): Promise<string | null>;
+  fetchUsage(token: string): Promise<Usage>;
+}
+
+const CLAUDE_CODE_USAGE: UsageSource = { readAccessToken, fetchUsage: (token) => fetchUsage(token) };
 
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
 const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
@@ -35,16 +44,6 @@ async function offerReload(message: string): Promise<void> {
 
 type SyncOutcome = 'changed' | 'unchanged' | 'error' | 'missing';
 
-// Every sync goes through this chain so that activation, the onDidChange
-// listener and the commands never read/write index.css concurrently.
-let syncQueue: Promise<unknown> = Promise.resolve();
-
-function enqueue<T>(op: () => Promise<T>): Promise<T> {
-  const result = syncQueue.then(op);
-  syncQueue = result.catch(() => undefined);
-  return result;
-}
-
 // Error toasts are not awaited, so a pending toast never blocks the queue.
 function reportError(action: string, err: unknown, silent: boolean): void {
   if (silent) {
@@ -60,7 +59,19 @@ function warnMissing(): void {
   );
 }
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
+export async function activate(
+  context: vscode.ExtensionContext,
+  usageSource: UsageSource = CLAUDE_CODE_USAGE
+): Promise<void> {
+  // Every sync goes through this chain so that activation, the onDidChange
+  // listener and the commands never read/write index.css concurrently.
+  let syncQueue: Promise<unknown> = Promise.resolve();
+  const enqueue = <T>(op: () => Promise<T>): Promise<T> => {
+    const result = syncQueue.then(op);
+    syncQueue = result.catch(() => undefined);
+    return result;
+  };
+
   const isEnabled = (feature: Feature): boolean =>
     context.globalState.get<boolean>(feature.flagKey, true);
   const enabledIds = (): Set<FeatureId> =>
@@ -119,14 +130,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const superseded = (): boolean => gen !== usageGen || !isUsageEnabled();
     let status: UsageStatus;
     try {
-      const token = await readAccessToken();
+      const token = await usageSource.readAccessToken();
       if (superseded()) {
         return;
       }
       if (!token) {
         throw new Error('not signed in to Claude Code');
       }
-      const usage = await fetchUsage(token);
+      const usage = await usageSource.fetchUsage(token);
       if (superseded()) {
         return;
       }
@@ -217,10 +228,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   // Claude Code updates change its extensionPath (version is in the folder
-  // name), so the new install needs syncing.
-  const changeListener = vscode.extensions.onDidChange(() => {
-    void sync(true);
-  });
+  // name), so the new install needs syncing. VS Code ignores the returned
+  // promise; tests use it to wait for the sync.
+  const changeListener = vscode.extensions.onDidChange(() => sync(true));
 
   const toggleCommands = FEATURES.map((feature) =>
     vscode.commands.registerCommand(feature.toggleCommand, async () => {
