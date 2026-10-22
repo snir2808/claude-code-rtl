@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FEATURES } from './features';
+import { FEATURES, TargetId } from './features';
 import { stripBlock, writeFileAtomic } from './blocks';
 
 const CLAUDE_DIR_PREFIX = 'anthropic.claude-code-';
@@ -30,15 +30,16 @@ export async function findClaudeCodeCssPaths(extensionsRoot: string): Promise<st
   return found;
 }
 
-// Strips every block and deletes every asset this extension wrote into one
-// install. Returns true if anything changed. An asset that is already gone is
-// fine; any other failure is thrown once every asset has been tried.
-export async function cleanInstall(cssPath: string): Promise<boolean> {
+// Strips every block of the target from one CSS file and deletes every asset
+// this extension wrote next to it. Returns true if anything changed. An asset
+// that is already gone is fine; any other failure is thrown once every asset
+// has been tried.
+export async function cleanCssFile(cssPath: string, target: TargetId): Promise<boolean> {
   let changed = false;
   const content = await fs.promises.readFile(cssPath, 'utf8');
   let cleaned = content;
   for (const feature of FEATURES) {
-    cleaned = stripBlock(cleaned, feature.blocks.claude.markers);
+    cleaned = stripBlock(cleaned, feature.blocks[target].markers);
   }
   if (cleaned !== content) {
     await writeFileAtomic(cssPath, cleaned);
@@ -46,7 +47,7 @@ export async function cleanInstall(cssPath: string): Promise<boolean> {
   }
   const failures: string[] = [];
   for (const feature of FEATURES) {
-    for (const asset of feature.blocks.claude.assets) {
+    for (const asset of feature.blocks[target].assets) {
       try {
         await fs.promises.unlink(path.join(path.dirname(cssPath), asset.target));
         changed = true;
@@ -61,6 +62,11 @@ export async function cleanInstall(cssPath: string): Promise<boolean> {
     throw new Error(`could not delete ${failures.join('; ')}`);
   }
   return changed;
+}
+
+/** Cleans one Claude Code install, given its webview/index.css. */
+export function cleanInstall(cssPath: string): Promise<boolean> {
+  return cleanCssFile(cssPath, 'claude');
 }
 
 export interface CleanupResult {
