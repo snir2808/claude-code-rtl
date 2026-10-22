@@ -1,9 +1,9 @@
 {
   "publisher": "local",
   "name": "vscode-bidi-rtl",
-  "displayName": "BiDi RTL & Theme for Claude Code",
-  "description": "RTL direction and a warm reading theme for the Claude Code panel",
-  "version": "0.1.0",
+  "displayName": "BiDi RTL & Theme for Claude Code and Copilot",
+  "description": "RTL direction and a warm reading theme for the Claude Code panel and VS Code's Copilot chat",
+  "version": "0.2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/snir2808/claude-code-rtl.git"
@@ -22,7 +22,7 @@
     "commands": [
       {
         "command": "bidi-rtl.applyPatch",
-        "title": "BiDi RTL: Apply RTL Patch to Claude Code"
+        "title": "BiDi RTL: Apply RTL Patch"
       },
       {
         "command": "bidi-rtl.removePatch",

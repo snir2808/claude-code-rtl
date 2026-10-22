@@ -1,10 +1,11 @@
-# BiDi RTL & Theme for Claude Code
+# BiDi RTL & Theme for Claude Code and Copilot
 
-A small VS Code extension for the Claude Code conversation panel:
+A small VS Code extension for the Claude Code conversation panel and VS Code's Copilot chat:
 
 - **RTL** makes mixed Hebrew/English conversations read naturally.
 - **Theme** gives the panel a warm, easier-to-read look in dark themes.
 - **Session clock** shows in the status bar when your 5-hour usage window resets.
+- **Copilot chat** gets the same RTL and theme: VS Code's built-in chat, where GitHub Copilot runs, looks and reads like the Claude Code panel.
 
 If you talk to Claude Code in Hebrew, you've seen it: punctuation jumps to the wrong side,
 mixed Hebrew/English lines scramble, and reading your own prompt back is a headache. This
@@ -28,6 +29,25 @@ The "Thinking" label stays left-to-right inside the RTL conversation, and the ca
 selection chip and the agents pill use the same 15px text as the footer buttons.
 
 Light and high-contrast themes are left untouched.
+
+### Copilot chat
+
+The same two modules style VS Code's built-in chat, where GitHub Copilot runs, in dark themes:
+
+- the warm palette and 15px Rubik text, with messages across the full width of the chat;
+- your messages as soft blocks with an accent bar;
+- quiet boxes for tool calls, thinking and terminal output;
+- the roomier input box: `+` on the left; the mode, model and other pickers next to the send
+  button on the right;
+- Hebrew paragraphs aligned right and English ones left, with code, tools and toolbars kept
+  left-to-right.
+
+The **Theme** and **RTL** buttons control Claude Code and the Copilot chat together. Light and
+high-contrast themes are left untouched.
+
+VS Code loads its chat styles when a window opens, before extensions start. After you install
+this extension, and after every VS Code update (an update replaces VS Code's files), the extension
+applies the styles again and asks you to reload the window once.
 
 ### Session clock
 
@@ -66,14 +86,13 @@ No telemetry, no network calls besides that one, and no settings to configure.
 
 This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 
-1. Download `vscode-bidi-rtl-0.1.0.vsix` from the [latest release](../../releases/latest).
+1. Download `vscode-bidi-rtl-0.2.0.vsix` from the [latest release](../../releases/latest).
 2. In VS Code: **Extensions** panel → `…` menu → **Install from VSIX…** → pick the file.
    Or from the terminal:
    ```bash
-   code --install-extension vscode-bidi-rtl-0.1.0.vsix
+   code --install-extension vscode-bidi-rtl-0.2.0.vsix
    ```
-3. Reload the window. RTL and the theme are applied automatically on startup; the session clock
-   asks first.
+3. Reload the window. RTL and the theme are applied automatically on startup, to Claude Code and to the Copilot chat (the chat needs one more reload the first time; the extension asks). The session clock asks first.
 
 ## Commands
 
@@ -83,7 +102,7 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 | `BiDi Theme: Toggle Warm Theme On/Off` | Turns the theme on or off (remembered across restarts). Also the **Theme** button in the status bar. |
 | `BiDi Usage: Toggle Session Clock On/Off` | Shows or hides the session clock. Off means no Keychain reads and no network requests. |
 | `BiDi Usage: Refresh Session Clock` | Refreshes the clock now (same as clicking it). While the clock is off it offers to turn it on. |
-| `BiDi RTL: Apply RTL Patch to Claude Code` | Turns RTL on. |
+| `BiDi RTL: Apply RTL Patch` | Turns RTL on. |
 | `BiDi RTL: Remove RTL Patch` | Turns RTL off. |
 
 ## How it works
@@ -92,17 +111,34 @@ Claude Code renders its conversation in a webview. This extension appends one cl
 CSS block per enabled module to that webview's `index.css`, and copies the theme's font files
 next to it.
 
+For the Copilot chat, the blocks go into VS Code's own `workbench.desktop.main.css`, inside the
+VS Code application, with the fonts next to it. VS Code keeps a checksum of that file in its
+`product.json` and would otherwise report that the installation is corrupt. The extension sets
+that one checksum after every change and restores it when the blocks are removed.
+
 - Each enabled block is re-applied automatically after a Claude Code update.
 - While the theme is on, every sync (at startup, after a Claude Code update, on each toggle)
   checks that the parts of Claude Code the theme styles are still there, and warns once per
   Claude Code version if something is missing.
-- Uninstalling the extension removes the blocks and fonts by itself. The cleanup runs the next
-  time VS Code fully restarts after the uninstall, because that is when VS Code runs uninstall
-  hooks.
+- A VS Code update replaces the chat's stylesheet, so the extension applies the chat blocks again
+  at the next start and asks for one reload. On VS Code Insiders that is about once a day.
+- While the theme is on, the extension also checks that the chat's class names it styles are
+  still in VS Code, and warns once per VS Code version if some are gone.
+- When VS Code is installed where your user cannot write (for example an `/Applications` copy
+  owned by an administrator), the chat cannot be styled. The extension says so once per VS Code
+  version when a window opens (and every time you toggle a module), and Claude Code is still
+  styled.
+- Uninstalling the extension removes the blocks and fonts by itself, from every Claude Code
+  install and from the VS Code it was uninstalled in (restoring its checksum). The cleanup runs
+  the next time VS Code fully restarts after the uninstall, because that is when VS Code runs
+  uninstall hooks. Another copy of VS Code that shares the same extensions folder keeps its chat
+  styles until its next update: turn both modules off there first.
 - *Disabling* the extension (as opposed to uninstalling it) keeps the patch, so use the toggles
   to turn the modules off.
 - Going back to 0.0.3 leaves the theme block and its fonts behind, since 0.0.3 knows only the RTL
   block. Turn the theme off first (or uninstall 0.1.0 and restart VS Code), then install 0.0.3.
+- Going back to 0.1.0 leaves the Copilot chat styled until the next VS Code update, since 0.1.0
+  knows only Claude Code. Turn both modules off first, then install 0.1.0.
 
 ## Build from source
 
@@ -112,6 +148,7 @@ npm run compile
 npx vsce package   # produces the .vsix
 npm test           # runs the unit and integration tests
 npm run fixture -- <path-to-claude-code-extension>   # renders the theme in headless Chrome
+npm run fixture:chat -- "<VS Code app root>"   # renders the Copilot chat fixture, e.g. /Applications/Visual Studio Code.app/Contents/Resources/app
 ```
 
 ## Credits
@@ -121,8 +158,9 @@ licensed under the SIL Open Font License 1.1 — see `fonts/OFL.txt`.
 
 ## Notes
 
-Built for personal use and shared as-is. It edits Claude Code's own CSS, which is a bit of a hack
-by nature — if a Claude Code update changes the markup, the patch may need updating. PRs welcome.
+Built for personal use and shared as-is. It edits Claude Code's own CSS and VS Code's workbench CSS,
+which is a bit of a hack by nature — if an update to either changes the markup, the patch may need
+updating. PRs welcome.
 
 ## License
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-22  
 **Project:** `vscode-bidi-rtl` (this repo), version 0.2.0  
-**Status:** Approved in brainstorming; written spec pending review  
+**Status:** Approved; implemented in 0.2.0 (plan: [2026-10-22-copilot-chat-theme.md](../plans/2026-10-22-copilot-chat-theme.md))  
 **Builds on:** 0.1.0 (RTL + warm theme for Claude Code, session clock) — see [`2026-10-09-claude-code-warm-theme-design.md`](2026-10-09-claude-code-warm-theme-design.md). Visual values are the ones defined there; this spec maps them onto VS Code's built-in chat.
 
 ---
