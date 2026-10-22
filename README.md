@@ -45,9 +45,22 @@ The same two modules style VS Code's built-in chat, where GitHub Copilot runs, i
 The **Theme** and **RTL** buttons control Claude Code and the Copilot chat together. Light and
 high-contrast themes are left untouched.
 
-VS Code loads its chat styles when a window opens, before extensions start. After you install
-this extension, and after every VS Code update (an update replaces VS Code's files), the extension
-applies the styles again and asks you to reload the window once.
+Some parts of the chat are laid out by VS Code itself, so they keep VS Code's own size:
+
+- the text you type keeps VS Code's font and size, and stays left-aligned (Hebrew still reads in
+  the right order within the line);
+- the input box keeps VS Code's width, up to about 926px, centered;
+- in a chat wider than 950px (say, a chat editor tab on a wide screen), long code lines still
+  wrap or scroll at about 910px.
+
+Inline chat in the editor and quick chat are left as they are.
+
+VS Code loads its chat styles when a window opens, before extensions start. It also checks its own
+files against checksums it reads once, when it starts. So after you install this extension, and
+after every VS Code update (an update replaces VS Code's files), the extension applies the styles
+again and asks you to **quit and reopen VS Code**. **Reload Window** also applies them, but VS Code
+then shows "Your Code installation appears to be corrupt" until its next restart. That warning is
+harmless.
 
 ### Session clock
 
@@ -92,7 +105,7 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
    ```bash
    code --install-extension vscode-bidi-rtl-0.2.0.vsix
    ```
-3. Reload the window. RTL and the theme are applied automatically on startup, to Claude Code and to the Copilot chat (the chat needs one more reload the first time; the extension asks). The session clock asks first.
+3. Reload the window. RTL and the theme are applied automatically on startup, to Claude Code and to the Copilot chat (for the chat, quit and reopen VS Code once more when the extension asks). The session clock asks first.
 
 ## Commands
 
@@ -114,14 +127,15 @@ next to it.
 For the Copilot chat, the blocks go into VS Code's own `workbench.desktop.main.css`, inside the
 VS Code application, with the fonts next to it. VS Code keeps a checksum of that file in its
 `product.json` and would otherwise report that the installation is corrupt. The extension sets
-that one checksum after every change and restores it when the blocks are removed.
+that one checksum after every change and restores it when the blocks are removed. VS Code reads
+its checksums when it starts, so a new one counts from the next restart.
 
 - Each enabled block is re-applied automatically after a Claude Code update.
 - While the theme is on, every sync (at startup, after a Claude Code update, on each toggle)
   checks that the parts of Claude Code the theme styles are still there, and warns once per
   Claude Code version if something is missing.
 - A VS Code update replaces the chat's stylesheet, so the extension applies the chat blocks again
-  at the next start and asks for one reload. On VS Code Insiders that is about once a day.
+  at the next start and asks you to restart VS Code once. On VS Code Insiders that is about once a day.
 - While the theme is on, the extension also checks that the chat's class names it styles are
   still in VS Code, and warns once per VS Code version if some are gone.
 - When VS Code is installed where your user cannot write (for example an `/Applications` copy
