@@ -134,11 +134,21 @@ export const extensions = {
   onDidChange: (listener: Listener<void>) => current.extensionsChanged.event(listener),
 };
 
+/** vscode.env: appRoot is '' (no workbench CSS) until a test calls fake.setAppRoot. */
+export const env = { appRoot: '' };
+
+const DEFAULT_VERSION = '1.143.0-insider';
+
+/** vscode.version; fake.setVersion changes it. */
+export let version = DEFAULT_VERSION;
+
 export const fake = {
-  /** Forgets everything: items, messages, commands, listeners, answers and Claude Code. */
+  /** Forgets everything: items, messages, commands, listeners, answers, Claude Code and the app root. */
   reset(): void {
     current = freshState();
     window.state.focused = true;
+    env.appRoot = '';
+    version = DEFAULT_VERSION;
   },
   get items(): FakeStatusBarItem[] {
     return current.items;
@@ -162,6 +172,13 @@ export const fake = {
   /** The Claude Code extension VS Code reports, or undefined when it is not installed. */
   setClaudeCode(extension: FakeExtension | undefined): void {
     current.claudeCode = extension;
+  },
+  /** The VS Code installation folder vscode.env.appRoot reports ('' for none). */
+  setAppRoot(appRoot: string): void {
+    env.appRoot = appRoot;
+  },
+  setVersion(next: string): void {
+    version = next;
   },
   /** Sets window.state.focused and fires onDidChangeWindowState. */
   focus(focused: boolean): Promise<void> {

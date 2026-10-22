@@ -5,8 +5,10 @@ import * as path from 'path';
 import type * as vscode from 'vscode';
 import { UsageSource, activate } from '../extension';
 import { FeatureId, RTL, THEME } from '../features';
-import { REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
+import { REQUIRED_CHAT_CLASSES, REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
 import { appendBlock } from '../blocks';
+import { computeChecksum } from '../checksum';
+import { WORKBENCH_CSS, workbenchCssPath } from '../workbench';
 import { CredentialReadError, Usage } from '../usage';
 import { FakeClock, flush } from './fake-clock';
 import { FakeMessage, FakeStatusBarItem, commands, fake } from './fake-vscode';
@@ -20,6 +22,12 @@ const HEALTHY_CSS =
   'html{--app-primary-background:#000}' +
   REQUIRED_CLASS_PREFIXES.map((p) => `.${p}abc123{color:red}`).join('');
 const HEALTHY_JS = REQUIRED_JS_HOOKS.map((h) => `x("${h}")`).join(';');
+const HEALTHY_WORKBENCH_CSS = REQUIRED_CHAT_CLASSES.map((c) => `.${c}{color:red}`).join('\n');
+const RELOAD = 'BiDi RTL & Theme: styles updated. Reload window to apply.';
+const MISSING = "BiDi RTL & Theme: found neither Claude Code nor VS Code's chat stylesheet, so there is nothing to change.";
+/** A product.json laid out like VS Code's, holding the checksum of `css`. */
+const productJson = (css: string): string =>
+  `{\n\t"nameShort": "Code - Insiders",\n\t"checksums": {\n\t\t"${WORKBENCH_CSS}": "${computeChecksum(css)}"\n\t}\n}\n`;
 const USAGE_FLAG = 'bidiUsage.enabled';
 const MINUTE = 60_000;
 /** Where the fake clock starts; RESET is the session reset the fake usage reports. */
@@ -94,6 +102,8 @@ suite('extension — activate()', () => {
   let usage: FakeUsage;
   let themeBody: string;
   let rtlBody: string;
+  let copilotThemeBody: string;
+  let copilotRtlBody: string;
   let contexts: Context[];
 
   /** Activates the extension the way VS Code would, with fakes for the clock's data. */
@@ -140,6 +150,35 @@ suite('extension — activate()', () => {
   const fontsIn = (dir: string): string[] =>
     THEME.blocks.claude.assets.map((a) => a.target).filter((target) => fs.existsSync(path.join(dir, 'webview', target)));
 
+  /** A VS Code installation with a workbench CSS and its checksum; vscode.env.appRoot points at it. */
+  async function installWorkbench(css = HEALTHY_WORKBENCH_CSS): Promise<string> {
+    const appRoot = path.join(tmp, 'Code.app', 'Contents', 'Resources', 'app');
+    await fs.promises.mkdir(path.dirname(workbenchCssPath(appRoot)), { recursive: true });
+    await fs.promises.writeFile(workbenchCssPath(appRoot), css);
+    await fs.promises.writeFile(path.join(appRoot, 'product.json'), productJson(css));
+    fake.setAppRoot(appRoot);
+    return appRoot;
+  }
+
+  const chatCssOf = (appRoot: string): string => fs.readFileSync(workbenchCssPath(appRoot), 'utf8');
+  const productOf = (appRoot: string): string => fs.readFileSync(path.join(appRoot, 'product.json'), 'utf8');
+  const chatFontsIn = (appRoot: string): string[] =>
+    THEME.blocks.workbench.assets
+      .map((a) => a.target)
+      .filter((target) => fs.existsSync(path.join(path.dirname(workbenchCssPath(appRoot)), target)));
+
+  /** The workbench CSS a sync of HEALTHY_WORKBENCH_CSS writes with these modules on. */
+  function syncedChat(ids: FeatureId[]): string {
+    let css = HEALTHY_WORKBENCH_CSS;
+    if (ids.includes('theme')) {
+      css = appendBlock(css, THEME.blocks.workbench.markers, copilotThemeBody);
+    }
+    if (ids.includes('rtl')) {
+      css = appendBlock(css, RTL.blocks.workbench.markers, copilotRtlBody);
+    }
+    return css;
+  }
+
   function item(command: string): FakeStatusBarItem {
     const found = fake.items.find((i) => i.command === command);
     assert.ok(found, `no status item runs ${command}`);
@@ -153,6 +192,8 @@ suite('extension — activate()', () => {
   suiteSetup(() => {
     themeBody = fs.readFileSync(path.join(ROOT, THEME.blocks.claude.cssFile), 'utf8');
     rtlBody = fs.readFileSync(path.join(ROOT, RTL.blocks.claude.cssFile), 'utf8');
+    copilotThemeBody = fs.readFileSync(path.join(ROOT, THEME.blocks.workbench.cssFile), 'utf8');
+    copilotRtlBody = fs.readFileSync(path.join(ROOT, RTL.blocks.workbench.cssFile), 'utf8');
   });
 
   setup(async () => {
@@ -185,7 +226,7 @@ suite('extension — activate()', () => {
       }
       assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
       assert.strictEqual(item('bidi-rtl.toggle').text, '$(check) RTL');
-      assert.ok(texts('info').includes('BiDi RTL & Theme: Claude Code CSS updated. Reload window to apply.'));
+      assert.ok(texts('info').includes(RELOAD));
       assert.deepStrictEqual(texts('warning'), []);
     });
 
@@ -308,6 +349,100 @@ suite('extension — activate()', () => {
       assert.strictEqual(clock.pending, 0);
     });
 
+  });
+
+  suite('Copilot chat', () => {
+    test('without Claude Code, activation styles the chat, sets its checksum and offers a reload', async () => {
+      const appRoot = await installWorkbench();
+      await start();
+      assert.strictEqual(chatCssOf(appRoot), syncedChat(['theme', 'rtl']));
+      assert.strictEqual(chatFontsIn(appRoot).length, THEME.blocks.workbench.assets.length);
+      assert.strictEqual(productOf(appRoot), productJson(syncedChat(['theme', 'rtl'])));
+      assert.deepStrictEqual(texts('warning'), []);
+      assert.ok(texts('info').includes(RELOAD));
+    });
+
+    test('one toggle updates Claude Code and the chat together, and off restores the checksum', async () => {
+      const dir = await installClaudeCode('2.1.287');
+      const appRoot = await installWorkbench();
+      await start();
+
+      await commands.executeCommand('bidi-rtl.toggle');
+      assert.strictEqual(cssOf(dir), synced(['theme']));
+      assert.strictEqual(chatCssOf(appRoot), syncedChat(['theme']));
+
+      await commands.executeCommand('bidi-theme.toggle');
+      assert.strictEqual(cssOf(dir), HEALTHY_CSS);
+      assert.strictEqual(chatCssOf(appRoot), HEALTHY_WORKBENCH_CSS);
+      assert.deepStrictEqual(chatFontsIn(appRoot), []);
+      assert.strictEqual(productOf(appRoot), productJson(HEALTHY_WORKBENCH_CSS));
+    });
+
+    test('with neither target, activation says nothing, and a toggle warns and keeps the flag', async () => {
+      const context = await start();
+      assert.deepStrictEqual(texts('warning'), []);
+      assert.ok(!texts('info').includes(RELOAD));
+
+      await commands.executeCommand('bidi-theme.toggle');
+      assert.deepStrictEqual(texts('warning'), [MISSING]);
+      assert.strictEqual(context.globalState.get(THEME.flagKey), true);
+      assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
+    });
+
+    test('the chat health warning shows once per VS Code version', async () => {
+      const [first] = REQUIRED_CHAT_CLASSES;
+      await installWorkbench(HEALTHY_WORKBENCH_CSS.replace(`.${first}{color:red}`, ''));
+      const context = await start();
+      assert.strictEqual(texts('warning').length, 1);
+      assert.ok(texts('warning')[0].includes('1.143.0-insider'), texts('warning')[0]);
+      assert.ok(texts('warning')[0].includes(`.${first}`), texts('warning')[0]);
+
+      await fake.extensionsChanged(); // another sync in the same activation
+      stop(context);
+      const second = await start(context.globalState); // remembers the warned version
+      assert.strictEqual(texts('warning').length, 1);
+
+      stop(second);
+      fake.setVersion('1.144.0-insider');
+      await start(context.globalState);
+      assert.strictEqual(texts('warning').length, 2);
+      assert.ok(texts('warning')[1].includes('1.144.0-insider'), texts('warning')[1]);
+    });
+
+    test('a chat CSS that cannot be written does not hold back Claude Code, and the toggle keeps its flag', async () => {
+      const dir = await installClaudeCode('2.1.287');
+      const appRoot = await installWorkbench();
+      const context = await start();
+      // A folder where writeFileAtomic puts its temp file makes the chat CSS write fail.
+      await fs.promises.mkdir(`${workbenchCssPath(appRoot)}.bidi-rtl-tmp-${process.pid}`);
+
+      await commands.executeCommand('bidi-theme.toggle');
+      assert.strictEqual(cssOf(dir), synced(['rtl']));
+      assert.strictEqual(chatCssOf(appRoot), syncedChat(['theme', 'rtl']));
+      assert.strictEqual(context.globalState.get(THEME.flagKey), false);
+      assert.strictEqual(texts('error').length, 1);
+      assert.ok(texts('error')[0].includes("Could not update VS Code's chat CSS"), texts('error')[0]);
+    });
+
+    test('a checksum that cannot be updated is logged, never shown', async () => {
+      const appRoot = await installWorkbench();
+      await fs.promises.rm(path.join(appRoot, 'product.json'));
+      await fs.promises.mkdir(path.join(appRoot, 'product.json')); // a folder: reading it fails
+      const logged: string[] = [];
+      const consoleError = console.error;
+      console.error = (...args: unknown[]) => void logged.push(args.join(' '));
+      try {
+        await start();
+      } finally {
+        console.error = consoleError;
+      }
+      assert.strictEqual(chatCssOf(appRoot), syncedChat(['theme', 'rtl']));
+      assert.deepStrictEqual(texts('error'), []);
+      assert.ok(
+        logged.some((line) => line.startsWith('BiDi RTL & Theme: could not update the checksum in product.json — ')),
+        logged.join('\n')
+      );
+    });
   });
 
   suite('session clock', () => {

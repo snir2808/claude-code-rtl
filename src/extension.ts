@@ -1,8 +1,16 @@
 import * as vscode from 'vscode';
 import { FEATURES, Feature, FeatureId, RTL } from './features';
-import { checkInstallHealth, formatHealthWarning, isHealthy } from './health';
+import {
+  checkInstallHealth,
+  checkWorkbenchInstallHealth,
+  formatHealthWarning,
+  formatWorkbenchHealthWarning,
+  isHealthy,
+  isWorkbenchHealthy,
+} from './health';
 import { getStatusBarState } from './status';
 import { syncInstall } from './sync';
+import { WorkbenchSyncResult, syncWorkbench } from './workbench';
 import {
   CredentialReadError,
   Usage,
@@ -23,6 +31,7 @@ const CLAUDE_CODE_USAGE: UsageSource = { readAccessToken, fetchUsage: (token) =>
 
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
 const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
+const LAST_WARNED_WORKBENCH_KEY = 'bidiTheme.lastWarnedWorkbenchVersion';
 const USAGE_FLAG = 'bidiUsage.enabled';
 /** Set when the clock's opt-in question is shown, so only one window or activation ever asks. */
 const USAGE_PROMPTED_KEY = 'bidiUsage.prompted';
@@ -51,6 +60,21 @@ async function offerReload(message: string): Promise<void> {
 
 type SyncOutcome = 'changed' | 'unchanged' | 'error' | 'missing';
 
+/**
+ * One outcome for a sync of every target: missing when no target exists,
+ * error when none of the existing ones could be updated.
+ */
+function combineOutcomes(outcomes: readonly SyncOutcome[]): SyncOutcome {
+  const present = outcomes.filter((outcome) => outcome !== 'missing');
+  if (present.length === 0) {
+    return 'missing';
+  }
+  if (present.every((outcome) => outcome === 'error')) {
+    return 'error';
+  }
+  return present.includes('changed') ? 'changed' : 'unchanged';
+}
+
 // Error toasts are not awaited, so a pending toast never blocks the queue.
 function reportError(action: string, err: unknown, silent: boolean): void {
   if (silent) {
@@ -62,7 +86,7 @@ function reportError(action: string, err: unknown, silent: boolean): void {
 
 function warnMissing(): void {
   void vscode.window.showWarningMessage(
-    'BiDi RTL & Theme: Claude Code extension not found. Please install it first.'
+    "BiDi RTL & Theme: found neither Claude Code nor VS Code's chat stylesheet, so there is nothing to change."
   );
 }
 
@@ -78,7 +102,7 @@ export async function activate(
   };
 
   // Every sync goes through this chain so that activation, the onDidChange
-  // listener and the commands never read/write index.css concurrently.
+  // listener and the commands never read/write the CSS files concurrently.
   let syncQueue: Promise<unknown> = Promise.resolve();
   const enqueue = <T>(op: () => Promise<T>): Promise<T> => {
     const result = syncQueue.then(op);
@@ -240,6 +264,9 @@ export async function activate(
   // Versions found healthy in this activation: every sync would otherwise
   // read Claude Code's index.js (megabytes) again.
   const healthyVersions = new Set<string>();
+  // The workbench CSS changes only with a VS Code update, which restarts this
+  // extension, so the chat is checked at most once per activation.
+  let chatChecked = false;
 
   // At most one warning per Claude Code version; the toast is never awaited.
   const warnIfUnhealthy = async (ext: vscode.Extension<unknown>): Promise<void> => {
@@ -256,13 +283,26 @@ export async function activate(
     void vscode.window.showWarningMessage(formatHealthWarning(version, report));
   };
 
-  // One sync; callers run it through the queue.
-  const syncNow = async (silent: boolean): Promise<SyncOutcome> => {
+  // At most one warning per VS Code version, kept apart from Claude Code's.
+  const warnIfChatUnhealthy = async (): Promise<void> => {
+    const version = vscode.version;
+    if (chatChecked || context.globalState.get<string>(LAST_WARNED_WORKBENCH_KEY) === version) {
+      return;
+    }
+    chatChecked = true;
+    const report = await checkWorkbenchInstallHealth(vscode.env.appRoot);
+    if (isWorkbenchHealthy(report)) {
+      return;
+    }
+    await context.globalState.update(LAST_WARNED_WORKBENCH_KEY, version);
+    void vscode.window.showWarningMessage(formatWorkbenchHealthWarning(version, report));
+  };
+
+  const syncClaudeCode = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
     const ext = vscode.extensions.getExtension(CLAUDE_EXTENSION_ID);
     if (!ext) {
       return 'missing';
     }
-    const enabled = enabledIds();
     let cssChanged: boolean;
     try {
       const result = await syncInstall(ext.extensionPath, context.extensionPath, enabled);
@@ -280,6 +320,39 @@ export async function activate(
       });
     }
     return cssChanged ? 'changed' : 'unchanged';
+  };
+
+  // VS Code's own chat, where Copilot runs, is styled by the workbench CSS.
+  const syncChat = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
+    let result: WorkbenchSyncResult | null;
+    try {
+      result = await syncWorkbench(vscode.env.appRoot, context.extensionPath, enabled);
+    } catch (err: unknown) {
+      reportError("update VS Code's chat CSS", err, silent);
+      return 'error';
+    }
+    if (!result) {
+      return 'missing';
+    }
+    for (const assetError of result.assetErrors) {
+      console.error(`BiDi Theme: font sync failed — ${assetError}`);
+    }
+    if (result.checksumError) {
+      // VS Code may then call the installation corrupt; the chat is styled anyway.
+      console.error(`BiDi RTL & Theme: could not update the checksum in product.json — ${result.checksumError}`);
+    }
+    if (enabled.has('theme')) {
+      await warnIfChatUnhealthy().catch((err: unknown) => {
+        console.error(formatError("check VS Code's chat", err));
+      });
+    }
+    return result.cssChanged ? 'changed' : 'unchanged';
+  };
+
+  // One sync of every target; callers run it through the queue.
+  const syncNow = async (silent: boolean): Promise<SyncOutcome> => {
+    const enabled = enabledIds();
+    return combineOutcomes([await syncClaudeCode(enabled, silent), await syncChat(enabled, silent)]);
   };
 
   const sync = (silent: boolean): Promise<SyncOutcome> => enqueue(() => syncNow(silent));
@@ -340,7 +413,7 @@ export async function activate(
 
   own(vscode.commands.registerCommand('bidi-rtl.applyPatch', async () => {
     if ((await setFeature(RTL, () => true)).outcome === 'changed') {
-      void offerReload('BiDi RTL: RTL patch applied to Claude Code. Reload window to apply.');
+      void offerReload('BiDi RTL: RTL patch applied. Reload window to apply.');
     }
   }));
 
@@ -388,12 +461,10 @@ export async function activate(
   void offerUsageClock().catch(reportOfferError);
 
   // The initial sync runs after everything is registered and never blocks
-  // activation on a toast.
-  const outcome = await sync(false);
-  if (outcome === 'missing') {
-    warnMissing();
-  } else if (outcome === 'changed') {
-    void offerReload('BiDi RTL & Theme: Claude Code CSS updated. Reload window to apply.');
+  // activation on a toast. A missing target is skipped silently: some people
+  // use only Claude Code, others only Copilot.
+  if ((await sync(false)) === 'changed') {
+    void offerReload('BiDi RTL & Theme: styles updated. Reload window to apply.');
   }
 }
 
