@@ -1,9 +1,10 @@
-/* RTL for VS Code's chat, in every theme. Only the message text turns
-   right-to-left: VS Code lays out the list, the toolbars and the input editor
-   in JS, and the input editor (Monaco) has no right-to-left mode, so those
-   keep their direction. Rules (enforced by src/test/copilot-css.test.ts): only
-   direction, text-align, unicode-bidi and list-marker placement, every
-   selector starting with .interactive-session. */
+/* RTL for VS Code's chat, in every theme. The message text turns
+   right-to-left, and so do lines of the input editor that hold right-to-left
+   text. VS Code lays out the list and the toolbars in JS, so those keep their
+   direction. Rules (enforced by src/test/copilot-css.test.ts): only
+   direction, text-align, unicode-bidi and list-marker placement (plus the
+   input line's stretch below), every selector starting with
+   .interactive-session. */
 
 /* Markdown, in your messages and in Copilot's: RTL blocks with
    text-align:start, and each paragraph, heading and list item takes the
@@ -36,4 +37,24 @@ content:"\2022  ";
 direction:ltr;
 text-align:left;
 unicode-bidi:isolate;
+}
+/* The input editor (Monaco). Monaco keeps every line left-to-right and
+   isolates each run of right-to-left text in it (an inline
+   unicode-bidi:isolate), so a Hebrew sentence starts on the left and its
+   punctuation lands on the wrong side. A line that holds right-to-left text
+   (Monaco marks it dir="ltr") turns right-to-left and aligns right, as Claude
+   Code's input does; Monaco reads caret and click positions from the rendered
+   text on such lines, so they follow. The line's span is stretched to the line
+   (left/right) so it can align right, and the right padding keeps a click on
+   the first letter from counting as past the end of the line. */
+.interactive-session .interactive-input-part .chat-editor-container .view-line[dir="ltr"]>span{
+direction:rtl;
+text-align:start;
+left:0;
+right:0;
+padding-right:8px;
+}
+.interactive-session .interactive-input-part .chat-editor-container .view-line[dir="ltr"]>span>span{
+/* !important: Monaco writes unicode-bidi:isolate inline on each span. */
+unicode-bidi:normal!important;
 }

@@ -113,7 +113,7 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 - `--vscode-chat-font-family: "BiDi Rubik", -apple-system, BlinkMacSystemFont, system-ui, sans-serif` inside the scope; base font size 15px on `.interactive-session` (the chat's `body-*` sizes are relative and scale with it); markdown line height 1.75; headings 20/18/16px weight 600 `#f5f0e8`; list markers `#d97757`.
 - The same `@font-face "BiDi Rubik"` faces as the Claude theme (Hebrew and Latin subsets), with `src` relative to the workbench CSS.
 - Code keeps the editor font.
-- The input editor keeps VS Code's font, 13px with a 20px line height *(changed while planning: 18px Rubik there would break the caret and wrapping, which Monaco computes from its JS options)*.
+- The input editor keeps VS Code's size and font, 13px with a 20px line height, because Monaco computes wrapping and the caret from them. On lines that hold Hebrew, the Hebrew letters use Rubik (dark themes), since VS Code's own list draws them in Courier New *(changed after manual testing)*.
 
 ### Layout and components
 
@@ -135,15 +135,15 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 
 ### Rules for the Copilot CSS files
 
-- `css/copilot-theme.css`: every style rule's selectors start with the scope above; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`; no rule on the input editor (`.monaco-editor`, `.chat-editor-container`).
-- `css/copilot-rtl.css`: only direction rules (`direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`), scoped under `.interactive-session` (all themes, like the Claude RTL block), and never on the input part.
+- `css/copilot-theme.css`: every style rule's selectors start with the scope above; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`; no rule on the input editor (`.monaco-editor`, `.chat-editor-container`); the one exception is the Hebrew font on input lines that hold right-to-left text.
+- `css/copilot-rtl.css`: only direction rules (`direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`), scoped under `.interactive-session` (all themes, like the Claude RTL block), and never on the input part; the exception is input lines that hold right-to-left text, stretched with left/right/padding-right, whose text runs need one !important against Monaco's inline unicode-bidi:isolate.
 - Neither file uses `!important` unless a native inline style forces it, and then with a comment naming the element.
 
 ### RTL (as in Claude Code)
 
 - Conversation container RTL with `text-align: start`; each paragraph, list item and the request text uses `unicode-bidi: plaintext`, so Hebrew paragraphs align right and English ones left.
 - Code blocks, inline code, tool invocations, terminal blocks, file and reference pills, and toolbars stay LTR.
-- The input editor keeps VS Code's left-to-right layout. Monaco has no right-to-left mode; Hebrew still reads in the right order within a line *(changed while planning)*.
+- A line of the input editor that holds right-to-left text turns right-to-left and aligns right (as in Claude Code's input). Monaco reads caret and click positions from the rendered text on such lines, so they follow; a line without Hebrew stays left-to-right. A wrapped line follows its own text, since Monaco renders each wrapped line separately *(changed after manual testing)*.
 
 ---
 

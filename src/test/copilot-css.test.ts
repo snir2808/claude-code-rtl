@@ -10,6 +10,9 @@ const ROOT = path.join(__dirname, '..', '..');
 const JS_LAID_OUT = /\.(interactive-input-part|chat-input-[\w-]+|chat-editor-container|interactive-input-editor|monaco-editor|monaco-list|view-lines?)(?![\w-])/;
 const read = (file: string): string => fs.readFileSync(path.join(ROOT, file), 'utf8');
 const oneLine = (body: string): string => body.replace(/\s/g, '');
+/** Lines of the input editor (Monaco) that hold right-to-left text, which Monaco marks dir="ltr", and their text runs. */
+const INPUT_LINE = '.interactive-session .interactive-input-part .chat-editor-container .view-line[dir="ltr"]>span';
+const INPUT_RUN = `${INPUT_LINE}>span`;
 
 // Each suite reads its file in suiteSetup, so a missing file fails its tests
 // instead of aborting the whole run while the suites are registered.
@@ -22,11 +25,13 @@ suite('copilot-rtl.css', () => {
     rules = topLevelRules(css);
   });
 
-  test('holds only the block body: no markers, no !important, no at-rules', () => {
+  test('holds only the block body: no markers, no at-rules, !important only against Monaco\'s inline isolate', () => {
     assert.ok(!css.includes('bidi-copilot-'));
-    assert.ok(!css.includes('!important'));
     assert.ok(rules.length > 0);
     assert.deepStrictEqual(rules.filter((r) => r.prelude.startsWith('@')), []);
+    const important = rules.filter((r) => r.body.includes('!important'));
+    assert.deepStrictEqual(important.map((r) => r.prelude), [INPUT_RUN]);
+    assert.strictEqual(oneLine(important[0].body), 'unicode-bidi:normal!important;');
   });
 
   test('every selector starts with .interactive-session', () => {
@@ -37,20 +42,35 @@ suite('copilot-rtl.css', () => {
     }
   });
 
-  test('declares only direction and list-marker properties', () => {
+  test("declares only direction and list-marker properties, plus the input line's stretch", () => {
     const allowed = new Set(['direction', 'text-align', 'unicode-bidi', 'list-style-position']);
+    const stretch = new Set(['left', 'right', 'padding-right']);
     for (const rule of rules) {
       for (const property of properties(rule.body)) {
-        const ok = allowed.has(property) || (property === 'content' && rule.prelude.endsWith('::marker'));
+        const ok =
+          allowed.has(property) ||
+          (property === 'content' && rule.prelude.endsWith('::marker')) ||
+          (stretch.has(property) && rule.prelude === INPUT_LINE);
         assert.ok(ok, `${property} in "${rule.prelude}"`);
       }
     }
   });
 
-  test('never turns the parts VS Code lays out in JS right-to-left', () => {
+  test('of the parts VS Code lays out in JS, touches only input lines that hold right-to-left text', () => {
     for (const rule of rules) {
-      assert.doesNotMatch(rule.prelude, JS_LAID_OUT, rule.prelude);
+      for (const selector of splitSelectors(rule.prelude)) {
+        if (JS_LAID_OUT.test(selector)) {
+          assert.ok([INPUT_LINE, INPUT_RUN].includes(selector), selector);
+        }
+      }
     }
+  });
+
+  test('turns input lines that hold right-to-left text right-to-left, aligned right', () => {
+    const line = rules.find((r) => r.prelude === INPUT_LINE);
+    assert.ok(line, 'no rule for the input line');
+    assert.strictEqual(oneLine(line.body), 'direction:rtl;text-align:start;left:0;right:0;padding-right:8px;');
+    assert.ok(rules.some((r) => r.prelude === INPUT_RUN), 'no rule for its text runs');
   });
 
   test('turns message text right-to-left and keeps code and tool calls left-to-right', () => {
@@ -107,9 +127,13 @@ suite('copilot-theme.css — rules', () => {
     }
   });
 
-  test('leaves the input editor to VS Code', () => {
+  test('of the input editor, sets only the Hebrew font, on lines that hold right-to-left text', () => {
     for (const rule of rules) {
-      assert.doesNotMatch(rule.prelude, INPUT_EDITOR, rule.prelude);
+      if (INPUT_EDITOR.test(rule.prelude)) {
+        assert.strictEqual(rule.prelude, `${THEME_SCOPE} .chat-editor-container .view-line[dir="ltr"]>span>span`);
+        assert.deepStrictEqual(properties(rule.body), ['font-family']);
+        assert.ok(rule.body.includes('"BiDi Rubik"'), rule.body);
+      }
     }
   });
 

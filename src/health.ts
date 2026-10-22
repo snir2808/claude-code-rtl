@@ -176,6 +176,8 @@ export const REQUIRED_CHAT_CLASSES: readonly string[] = [
   'chat-input-picker-split',
   'chat-input-picker-split-button',
   'chat-submit-button',
+  'chat-editor-container',
+  'view-line',
 ];
 
 export interface WorkbenchHealthReport {

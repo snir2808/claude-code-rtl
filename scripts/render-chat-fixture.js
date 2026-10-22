@@ -31,6 +31,7 @@ function check(mode, r) {
   expect(r.dirAnswerHe === 'rtl' && Math.abs(r.alignAnswerHe) <= 1, `Hebrew paragraph: ${r.dirAnswerHe}, ${r.alignAnswerHe}px from the right edge`);
   expect(r.bidiAnswerEn === 'plaintext', `paragraph unicode-bidi: ${r.bidiAnswerEn} (want plaintext)`);
   expect(r.dirRequestHe === 'rtl', `Hebrew request direction: ${r.dirRequestHe}`);
+  expect(r.inputLine === 'rtl normal 8', `input line with Hebrew: ${r.inputLine} (want rtl, no isolate, 8px from the right)`);
   expect(r.dirCode === 'ltr' && r.dirTool === 'ltr' && r.dirToolbar === 'ltr', `code/tool/toolbar direction: ${r.dirCode}/${r.dirTool}/${r.dirToolbar} (want ltr)`);
   if (mode === 'dark') {
     expect(r.fontsLoaded >= 2, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 2)`);
@@ -53,6 +54,7 @@ function check(mode, r) {
     expect(r.inputBox === 'rgb(36, 33, 32) rgb(217, 119, 87) 18px', `focused input box: ${r.inputBox}`);
     expect(r.inputEditorBg === 'rgb(36, 33, 32)', `input editor background: ${r.inputEditorBg}`);
     expect(r.inputTextSize === '13px', `input text: ${r.inputTextSize} (VS Code sets it in JS; it must stay 13px)`);
+    expect(r.inputHebrewFont.includes('"BiDi Rubik"'), `Hebrew in the input: ${r.inputHebrewFont} (want Rubik before the fallbacks)`);
     expect(r.attach === '36x34' && r.attachLeft <= 12, `attach button: ${r.attach} at ${r.attachLeft}px`);
     for (const [name, p] of [['mode picker', r.modePicker], ['model picker', r.modelPicker]]) {
       expect(
@@ -66,6 +68,7 @@ function check(mode, r) {
   } else {
     // Only the workbench class differs from the dark page, so these check that none of the theme applies.
     expect(r.fontsLoaded === 0, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 0)`);
+    expect(!r.inputHebrewFont.includes('BiDi Rubik'), `light theme uses Rubik in the input: ${r.inputHebrewFont}`);
     expect(!r.textFont.includes('BiDi Rubik'), `light theme uses the theme font: ${r.textFont}`);
     expect(r.textSize === '13px', `light theme text size: ${r.textSize} (want the native 13px)`);
     expect(r.sessionWidth === 950, `light theme chat width: ${r.sessionWidth} (want the native 950)`);

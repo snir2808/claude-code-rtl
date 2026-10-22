@@ -47,8 +47,8 @@ high-contrast themes are left untouched.
 
 Some parts of the chat are laid out by VS Code itself, so they keep VS Code's own size:
 
-- the text you type keeps VS Code's font and size, and stays left-aligned (Hebrew still reads in
-  the right order within the line);
+- the text you type keeps VS Code's size; a line with Hebrew turns right-to-left and aligns
+  right, with its Hebrew letters in Rubik (VS Code's own font list draws them in Courier New);
 - the input box keeps VS Code's width, up to about 926px, centered;
 - in a chat wider than 950px (say, a chat editor tab on a wide screen), long code lines still
   wrap or scroll at about 910px.
