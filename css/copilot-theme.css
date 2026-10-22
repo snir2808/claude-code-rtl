@@ -155,7 +155,7 @@ margin-inline:max(12px,calc((100% - 926px) / 2));
    while Latin letters keep the system font VS Code measures. Only on lines
    that hold right-to-left text (Monaco marks them dir="ltr"). */
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-editor-container .view-line[dir="ltr"]>span>span{
-font-family:-apple-system,BlinkMacSystemFont,"Segoe WPC","Segoe UI","Ubuntu","Droid Sans","BiDi Rubik",sans-serif;
+font-family:-apple-system,BlinkMacSystemFont,system-ui,"Segoe WPC","Segoe UI","Ubuntu","Droid Sans","BiDi Rubik",sans-serif;
 }
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars{
 --chat-input-control-height:34px;

@@ -136,7 +136,7 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 ### Rules for the Copilot CSS files
 
 - `css/copilot-theme.css`: every style rule's selectors start with the scope above; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`; no rule on the input editor (`.monaco-editor`, `.chat-editor-container`); the one exception is the Hebrew font on input lines that hold right-to-left text.
-- `css/copilot-rtl.css`: only direction rules (`direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`), scoped under `.interactive-session` (all themes, like the Claude RTL block), and never on the input part; the exception is input lines that hold right-to-left text, stretched with left/right/padding-right, whose text runs need one !important against Monaco's inline unicode-bidi:isolate.
+- `css/copilot-rtl.css`: only direction rules (`direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`), scoped under `.interactive-session` (all themes, like the Claude RTL block), and never on the input part except for input lines that hold right-to-left text (also in the inline editor for editing a request), stretched with left/right/padding-right, whose text runs need one !important against Monaco's inline unicode-bidi:isolate.
 - Neither file uses `!important` unless a native inline style forces it, and then with a comment naming the element.
 
 ### RTL (as in Claude Code)

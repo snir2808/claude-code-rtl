@@ -128,13 +128,16 @@ suite('copilot-theme.css — rules', () => {
   });
 
   test('of the input editor, sets only the Hebrew font, on lines that hold right-to-left text', () => {
-    for (const rule of rules) {
-      if (INPUT_EDITOR.test(rule.prelude)) {
-        assert.strictEqual(rule.prelude, `${THEME_SCOPE} .chat-editor-container .view-line[dir="ltr"]>span>span`);
-        assert.deepStrictEqual(properties(rule.body), ['font-family']);
-        assert.ok(rule.body.includes('"BiDi Rubik"'), rule.body);
-      }
-    }
+    const onEditor = rules.filter((r) => INPUT_EDITOR.test(r.prelude));
+    assert.deepStrictEqual(onEditor.map((r) => r.prelude), [
+      `${THEME_SCOPE} .chat-editor-container .view-line[dir="ltr"]>span>span`,
+    ]);
+    const [rule] = onEditor;
+    assert.deepStrictEqual(properties(rule.body), ['font-family']);
+    // Latin letters must keep the system font VS Code measures, so Rubik comes after it.
+    const fonts = oneLine(rule.body);
+    assert.ok(fonts.indexOf('-apple-system') < fonts.indexOf('"BiDi Rubik"'), rule.body);
+    assert.ok(fonts.indexOf('system-ui') < fonts.indexOf('"BiDi Rubik"'), rule.body);
   });
 
   test('keeps the input box geometry VS Code computes: tokens only on the box, margins only on the part', () => {
