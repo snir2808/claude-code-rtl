@@ -47,6 +47,13 @@ Checked on 2026-10-22 against `/Applications/Visual Studio Code - Insiders 2.app
 
 Exact DOM shapes (element nesting, the markdown container's class, the request/response header) are confirmed against a real DOM sample captured once with **Help → Toggle Developer Tools → Copy outerHTML** of `.interactive-session` during implementation; this spec fixes roles and values, the plan fixes selectors.
 
+**Found while planning** (static analysis of 1.143's `workbench.desktop.main.js` and `.css`). These facts changed four decisions below, each marked *(changed while planning)*:
+
+- **The input editor is sized in JS.** The input editor is a Monaco editor whose font (the system UI font), size (13px) and line height (20px) are set in JS. Its width is computed in JS from the chat's layout width. Monaco also lays out line wrapping and the caret from these options, so a CSS font change would misplace the caret and clip lines. Monaco also has no right-to-left mode.
+- **The layout width is capped in JS.** The chat widget lays itself out at most 950px wide (`maximumWidth`). The input part's width must match that, less its 12px margins.
+- **VS Code writes inline styles on the root.** JS writes `font-size` (from `chat.fontSize`) and three resolved colors inline on `.interactive-session`. These are redefined one level down, on `.interactive-list`, rather than overridden with `!important`.
+- **Other surfaces share the root class.** `.interactive-session` also appears in inline chat (inside `.chat-widget`), quick chat and hovers. The chat view lives in `.chat-viewpane`; the chat editor tab lives in `.editor-instance`.
+
 ---
 
 ## Architecture
@@ -73,7 +80,7 @@ The feature registry gains a target dimension. Each module keeps one flag and on
 
 ## Visual spec
 
-Everything is scoped under `.monaco-workbench.vs-dark .interactive-session`. Light and high-contrast themes are untouched. Values are the Claude Code theme's (spec of 2026-10-09, as amended).
+Everything is scoped under `.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session)`. That covers the chat view and the chat editor tab, but not inline chat or quick chat *(changed while planning: the plain `.interactive-session` scope reached inline chat too)*. Light and high-contrast themes are untouched. Values are the Claude Code theme's (spec of 2026-10-09, as amended).
 
 ### Palette
 
@@ -98,28 +105,37 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 - `--vscode-chat-font-family: "BiDi Rubik", -apple-system, BlinkMacSystemFont, system-ui, sans-serif` inside the scope; base font size 15px on `.interactive-session` (the chat's `body-*` sizes are relative and scale with it); markdown line height 1.75; headings 20/18/16px weight 600 `#f5f0e8`; list markers `#d97757`.
 - The same `@font-face "BiDi Rubik"` faces as the Claude theme (Hebrew and Latin subsets), with `src` relative to the workbench CSS.
 - Code keeps the editor font.
+- The input editor keeps VS Code's font, 13px with a 20px line height *(changed while planning: 18px Rubik there would break the caret and wrapping, which Monaco computes from its JS options)*.
 
 ### Layout and components
 
-- **Width:** messages use the full width of the chat view (override the native `max-width:950px` on `.interactive-session`); the input part is centered at max 816px.
+- **Width:** messages use the full width of the chat view (override the native `max-width:950px` on `.interactive-session`). The input part keeps VS Code's layout width: at most 950px including its 12px margins, so 926px, centered *(changed while planning: VS Code sizes the input editor for that width, so a narrower box would clip it)*.
 - **Your messages:** a full-width block (not a right-aligned bubble): background `#262320`, radius 14px, padding 12px 16px, text `#f5f0e8`, `border-inline-start: 3px solid #d97757`.
 - **Responses:** markdown as above; code blocks radius 12px, padding 12px 16px.
 - **Activity:** status lines and parts — routing/progress lines, used references (`chat-used-context`), tool invocations (`chat-tool-invocation-part`), thinking (`chat-thinking-box`), terminal blocks (`chat-terminal-content-part`) — get the quiet box: surface `#211f1c`, 1px `#2b2824` border, radius 12px, 12.5px text `#968f83`. Consecutive parts read as one box where the DOM groups them; otherwise each part is its own box.
 - **Confirmation widgets** (permission prompts): palette and radius only.
-- **Composer (1.2×, as Claude Code's):** box fill `#242120`, radius 18px, border `#736a5d`, focus `#d97757` (replacing the blue focus border); input text 18px Rubik. Toolbar: `+` as a 36×34 icon button on the left; the mode, model and `Balance` pickers as 34px ghost pills (transparent, 1px `#453e35`, radius 11px, 15px text) moved to the right next to the execute toolbar; mic as an icon button; send as a 40px round button `#c6613f`. The secondary toolbar under the box (`Interactive`, `Manual permissions`) in secondary text.
+- **Composer (1.2×, as Claude Code's):**
+  - Box: fill `#242120`, radius 18px, border `#736a5d`, focus `#d97757` (replacing the blue focus border).
+  - Input text: keeps VS Code's font and size (see Typography).
+  - `+`: a 36×34 icon button on the left, filled `#2f2b26` as in Claude Code.
+  - Pickers: the mode picker and the model picker (a split button holding the model and its `Balance` setting) as 34px ghost pills: transparent, 1px `#453e35`, radius 11px, 15px text. They move to the right, next to the execute toolbar.
+  - Mic: a 36×34 icon button.
+  - Send: a 40px round button `#c6613f` with an ivory icon.
+  - Secondary toolbar under the box (`Interactive`, `Manual permissions`): secondary text.
+  - The box keeps its horizontal margins, padding and border width, which VS Code's JS assumes.
 - **Unchanged:** the chat view title bar and tabs, and everything outside `.interactive-session`.
 
 ### Rules for the Copilot CSS files
 
-- `css/copilot-theme.css`: every style rule's selectors start with `.monaco-workbench.vs-dark .interactive-session`; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`.
-- `css/copilot-rtl.css`: only direction rules (`direction`, `text-align`, `unicode-bidi`, list marker placement), scoped under `.interactive-session` (all themes, like the Claude RTL block).
+- `css/copilot-theme.css`: every style rule's selectors start with the scope above; only `@font-face` at top level; no `direction`, `text-align` or `unicode-bidi`; no rule on the input editor (`.monaco-editor`, `.chat-editor-container`).
+- `css/copilot-rtl.css`: only direction rules (`direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`), scoped under `.interactive-session` (all themes, like the Claude RTL block), and never on the input part.
 - Neither file uses `!important` unless a native inline style forces it, and then with a comment naming the element.
 
 ### RTL (as in Claude Code)
 
 - Conversation container RTL with `text-align: start`; each paragraph, list item and the request text uses `unicode-bidi: plaintext`, so Hebrew paragraphs align right and English ones left.
 - Code blocks, inline code, tool invocations, terminal blocks, file and reference pills, and toolbars stay LTR.
-- The input editor follows the language of its text.
+- The input editor keeps VS Code's left-to-right layout. Monaco has no right-to-left mode; Hebrew still reads in the right order within a line *(changed while planning)*.
 
 ---
 
@@ -136,7 +152,7 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 ### Visual fixture
 
 - A static page reproducing the chat DOM from the captured sample (a Hebrew request, an English request, a response with heading, list, inline code and a code block, a routing line, a tool invocation, a thinking box, a terminal block, and the input part with its toolbars), loaded with the real `workbench.desktop.main.css` plus the synced blocks, rendered in headless Chrome with `.monaco-workbench.vs-dark` and with `.vs`.
-- Checks: palette values, Rubik 15px messages / 18px input, user block full width, input part 816px, toolbar order (`+` left; pickers and send right), send 40px, RTL direction per paragraph, code LTR; in light mode nothing of the theme applies.
+- Checks: palette values, Rubik 15px messages, the input editor's text still 13px, user block full width, input part 926px, toolbar order (`+` left; pickers and send right), send 40px, RTL direction per paragraph, code LTR; in light mode nothing of the theme applies.
 
 ### Manual (VS Code Insiders here, with Copilot Free)
 
