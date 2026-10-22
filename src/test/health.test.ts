@@ -4,13 +4,22 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   HealthReport,
+  REQUIRED_CHAT_CLASSES,
   REQUIRED_CLASS_PREFIXES,
   REQUIRED_JS_HOOKS,
+  WorkbenchHealthReport,
   checkHealth,
   checkInstallHealth,
+  checkWorkbenchHealth,
+  checkWorkbenchInstallHealth,
   formatHealthWarning,
+  formatWorkbenchHealthWarning,
   isHealthy,
+  isWorkbenchHealthy,
 } from '../health';
+import { appendBlock } from '../blocks';
+import { THEME } from '../features';
+import { workbenchCssPath } from '../workbench';
 
 const GOOD_CSS =
   'html{--app-primary-background:#000}' +
@@ -107,5 +116,66 @@ suite('health', () => {
 
   test('a healthy install has no warning', () => {
     assert.strictEqual(formatHealthWarning('2.1.287', HEALTHY), '');
+  });
+});
+
+suite('health — the Copilot chat', () => {
+  const GOOD_WORKBENCH = REQUIRED_CHAT_CLASSES.map((c) => `.${c}{color:red}`).join('\n');
+  const HEALTHY_CHAT: WorkbenchHealthReport = { unreadable: false, missingClasses: [] };
+
+  test('a complete workbench CSS is healthy', () => {
+    const report = checkWorkbenchHealth(GOOD_WORKBENCH);
+    assert.deepStrictEqual(report, HEALTHY_CHAT);
+    assert.strictEqual(isWorkbenchHealthy(report), true);
+  });
+
+  test('missing classes are listed, and a longer name does not count', () => {
+    const css = GOOD_WORKBENCH.replace('.chat-input-toolbar{color:red}', '.chat-input-toolbar-x{color:red}');
+    assert.deepStrictEqual(checkWorkbenchHealth(css).missingClasses, ['chat-input-toolbar']);
+    assert.strictEqual(isWorkbenchHealthy(checkWorkbenchHealth(css)), false);
+  });
+
+  test('an unreadable file is reported, and nothing in it is checked', () => {
+    assert.deepStrictEqual(checkWorkbenchHealth(null), { unreadable: true, missingClasses: [] });
+    assert.strictEqual(isWorkbenchHealthy(checkWorkbenchHealth(null)), false);
+  });
+
+  suite('checkWorkbenchInstallHealth', () => {
+    let appRoot: string;
+
+    setup(async () => {
+      appRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'bidi-chat-health-'));
+      await fs.promises.mkdir(path.dirname(workbenchCssPath(appRoot)), { recursive: true });
+    });
+
+    teardown(async () => {
+      await fs.promises.rm(appRoot, { recursive: true, force: true });
+    });
+
+    test("ignores this extension's own blocks, which name the same classes", async () => {
+      const css = appendBlock(GOOD_WORKBENCH.replace('.value{color:red}', ''), THEME.blocks.workbench.markers, '.value{}');
+      await fs.promises.writeFile(workbenchCssPath(appRoot), css);
+      assert.deepStrictEqual((await checkWorkbenchInstallHealth(appRoot)).missingClasses, ['value']);
+    });
+
+    test('reports a missing file instead of rejecting', async () => {
+      assert.strictEqual((await checkWorkbenchInstallHealth(appRoot)).unreadable, true);
+    });
+  });
+
+  test('the warning names the VS Code version and the missing classes', () => {
+    const message = formatWorkbenchHealthWarning('1.144.0-insider', { unreadable: false, missingClasses: ['value', 'codicon'] });
+    assert.ok(message.includes('1.144.0-insider'), message);
+    assert.ok(message.includes('.value, .codicon'), message);
+  });
+
+  test('the warning names a file it could not read', () => {
+    const message = formatWorkbenchHealthWarning('1.144.0-insider', { unreadable: true, missingClasses: [] });
+    assert.ok(message.includes('could not read the workbench CSS'), message);
+    assert.ok(!message.includes('Missing'), message);
+  });
+
+  test('a healthy workbench CSS has no warning', () => {
+    assert.strictEqual(formatWorkbenchHealthWarning('1.143.0-insider', HEALTHY_CHAT), '');
   });
 });

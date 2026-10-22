@@ -1,0 +1,207 @@
+/* Warm reading theme for VS Code's chat, where Copilot runs: dark themes only.
+   The chat's class names are stable (interactive-session, chat-input-container…).
+   It styles the chat view (side bar, panel) and the chat editor tab, not
+   inline chat (.chat-widget) or quick chat. Rules (enforced by
+   src/test/copilot-css.test.ts): every selector starts with
+   .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance)
+   .interactive-session:not(.chat-widget>.interactive-session), only
+   @font-face at top level, and no direction, text-align or unicode-bidi
+   (those belong to css/copilot-rtl.css). VS Code measures some of the chat in JS, so those parts
+   keep their native size: the input editor's font and line height, the input
+   part's horizontal margins (up to its 950px layout width) and the input box's
+   horizontal padding and border. The font files sit next to the workbench CSS. */
+
+@font-face{
+font-family:"BiDi Rubik";
+src:url("bidi-theme-rubik-hebrew.woff2") format("woff2");
+font-style:normal;
+font-weight:300 900;
+font-display:swap;
+unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;
+}
+@font-face{
+font-family:"BiDi Rubik";
+src:url("bidi-theme-rubik-latin.woff2") format("woff2");
+font-style:normal;
+font-weight:300 900;
+font-display:swap;
+unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* Palette. VS Code's theme defines its tokens on .monaco-workbench, so
+   redefining them here gives every part of the chat these values. The list
+   rows paint with the side bar color; parts of the chat in an editor tab use
+   the editor color. Messages span the whole view instead of the native 950px
+   column. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session){
+--vscode-chat-font-family:"BiDi Rubik",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+--vscode-sideBar-background:#1b1a18;
+--vscode-editor-background:#1b1a18;
+--vscode-foreground:#ebe5da;
+--vscode-descriptionForeground:#a39d92;
+--vscode-icon-foreground:#cfc6b7;
+--vscode-widget-border:#3b362f;
+--vscode-toolbar-hoverBackground:#2a2622;
+--vscode-chat-requestBackground:#262320;
+--vscode-chat-requestBubbleBackground:#262320;
+--vscode-chat-requestBubbleHoverBackground:#2a2622;
+--vscode-chat-requestBorder:#3b362f;
+--vscode-chat-requestCodeBorder:#3b362f;
+--vscode-textLink-foreground:#e8a07f;
+--vscode-textLink-activeForeground:#f2b896;
+--vscode-textPreformat-foreground:#f2b896;
+--vscode-textPreformat-background:#2b2824;
+--vscode-textBlockQuote-background:#211f1c;
+--vscode-textBlockQuote-border:#d97757;
+--vscode-focusBorder:#d97757;
+max-width:none;
+background:#1b1a18;
+}
+/* VS Code writes three resolved colors and the 13px chat font size inline on
+   .interactive-session; the list redefines them for the conversation. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-list{
+--vscode-interactive-session-foreground:#ebe5da;
+--vscode-chat-list-background:#1b1a18;
+--vscode-interactive-result-editor-background-color:#121110;
+font-size:15px;
+}
+
+/* Your messages: a full-width soft block with an accent bar where the text starts. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container.interactive-request .value .rendered-markdown{
+width:100%;
+max-width:none;
+margin-left:0;
+box-sizing:border-box;
+color:#f5f0e8;
+border-inline-start:3px solid #d97757;
+border-radius:14px;
+padding:12px 16px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container.interactive-request .value>.rendered-markdown p{
+width:auto;
+}
+
+/* Copilot's markdown. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown{
+line-height:1.75;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value>.rendered-markdown>p{
+margin:0 0 12px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown h1,
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown h2,
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown h3{
+font-weight:600;
+color:#f5f0e8;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown h1{
+font-size:20px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown h2{
+font-size:18px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown h3{
+font-size:16px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown li::marker{
+color:#d97757;
+}
+/* Code blocks: the block and the editor inside it both read the medium radius. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-response .interactive-result-code-block{
+--vscode-cornerRadius-medium:12px;
+border-color:#2b2824;
+border-radius:12px;
+}
+
+/* Activity: auto-routing, references, thinking with its grouped tool calls,
+   and tool calls or terminal commands on their own, each in a quiet box. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-response .value>.chat-used-context,
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-response .value>.chat-tool-invocation-part,
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-response .value>.chat-terminal-content-part{
+--vscode-chat-font-size-body-xs:11.5px;
+--vscode-chat-font-size-body-s:12.5px;
+--vscode-chat-font-size-body-m:12.5px;
+--vscode-descriptionForeground:#968f83;
+--vscode-foreground:#cfc6b7;
+--vscode-interactive-session-foreground:#cfc6b7;
+--vscode-chat-requestBorder:#2b2824;
+background:#211f1c;
+border:1px solid #2b2824;
+border-radius:12px;
+padding:6px 12px;
+color:#968f83;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-response .value>.chat-used-context{
+margin-bottom:12px;
+}
+
+/* Composer: a rounder box with the accent as its focus color, a 34px
+   toolbar, attach on the left, the pickers next to send on the right. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-input-part{
+--chat-input-radius:18px;
+margin-inline:max(12px,calc((100% - 926px) / 2));
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-container{
+--vscode-input-background:#242120;
+--vscode-input-border:#736a5d;
+--vscode-input-foreground:#f5f0e8;
+--vscode-input-placeholderForeground:#9a9387;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars{
+--chat-input-control-height:34px;
+--vscode-codiconFontSize-compact:16px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars>.chat-input-toolbar .actions-container{
+justify-content:flex-end;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars>.chat-input-toolbar .actions-container>.action-item.menu-entry:first-child{
+margin-right:auto;
+}
+/* Attach (+) and the other icon buttons: 36x34, attach filled as in Claude Code. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars .action-item.menu-entry:not(.chat-submit-button)>.action-label.codicon,
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars>.chat-execute-toolbar .action-item:not(.chat-submit-button)>.action-label{
+box-sizing:border-box;
+width:36px;
+height:34px;
+border-radius:11px;
+justify-content:center;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars>.chat-input-toolbar .actions-container>.action-item.menu-entry:first-child>.action-label{
+background:#2f2b26;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars>.chat-input-toolbar .actions-container>.action-item.menu-entry:first-child>.action-label:hover{
+background:#38332c;
+}
+/* The mode and model pickers: 34px ghost pills with 15px text. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbar .chat-input-picker-item .action-label{
+padding:0 12px;
+border:1px solid #453e35;
+border-radius:11px;
+background:transparent;
+font-size:15px;
+color:#ddd4c6;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbar .chat-input-picker-item .action-label:hover{
+background:#2a2622;
+}
+/* The model picker is a split button: the model and its setting (Balance)
+   are two buttons inside one pill. */
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbar .chat-input-picker-item .action-label.chat-input-picker-split{
+padding:0;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbar .chat-input-picker-split>.chat-input-picker-split-button{
+height:100%;
+padding:0 12px;
+border-radius:10px;
+font-size:15px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-toolbars>.chat-execute-toolbar .monaco-action-bar .action-item.chat-submit-button>.action-label{
+--vscode-button-background:#c6613f;
+--vscode-button-hoverBackground:#d97757;
+--vscode-button-foreground:#faf9f5;
+width:40px;
+height:40px;
+}
+.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-secondary-toolbar{
+--vscode-icon-foreground:#a39d92;
+}

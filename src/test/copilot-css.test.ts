@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RTL } from '../features';
-import { TopLevelRule, properties, splitSelectors, topLevelRules } from './css-rules';
+import { RTL, THEME } from '../features';
+import { REQUIRED_CHAT_CLASSES } from '../health';
+import { TopLevelRule, classNames, properties, splitSelectors, topLevelRules, urls } from './css-rules';
 
 const ROOT = path.join(__dirname, '..', '..');
 /** Parts VS Code lays out in JS: the input part, its toolbars, the Monaco editors and the list. */
@@ -61,5 +62,92 @@ suite('copilot-rtl.css', () => {
     for (const part of ['code', 'interactive-result-code-block', 'chat-tool-invocation-part', 'chat-terminal-content-part']) {
       assert.ok(ltr.prelude.includes(part), `${part} is not kept LTR`);
     }
+  });
+});
+
+/** The chat view and the chat editor tab, in dark themes; not inline chat (.chat-widget) or quick chat. */
+const THEME_SCOPE =
+  '.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session)';
+/** The input editor (Monaco), whose font, line height and width VS Code sets in JS. */
+const INPUT_EDITOR = /\.(chat-editor-container|interactive-input-editor|monaco-editor|view-lines?|mtk1)(?![\w-])/;
+
+suite('copilot-theme.css — rules', () => {
+  let css: string;
+  let rules: TopLevelRule[];
+
+  suiteSetup(() => {
+    css = read(THEME.blocks.workbench.cssFile);
+    rules = topLevelRules(css);
+  });
+
+  test('holds only the block body: no markers, no !important', () => {
+    assert.ok(!css.includes('bidi-copilot-'));
+    assert.ok(!css.includes('!important'));
+  });
+
+  test('the only top-level at-rule is @font-face', () => {
+    for (const rule of rules.filter((r) => r.prelude.startsWith('@'))) {
+      assert.strictEqual(rule.prelude, '@font-face');
+    }
+  });
+
+  test('every selector starts with the chat scope', () => {
+    for (const rule of rules.filter((r) => !r.prelude.startsWith('@'))) {
+      for (const selector of splitSelectors(rule.prelude)) {
+        const rest = selector.slice(THEME_SCOPE.length);
+        assert.ok(selector.startsWith(THEME_SCOPE) && /^($|[\s>:.[])/.test(rest), `unscoped selector: ${selector}`);
+      }
+    }
+  });
+
+  test('no direction, text-align or unicode-bidi declarations', () => {
+    for (const rule of rules) {
+      const bad = /(^|[;{\s])(direction|text-align|unicode-bidi)\s*:/i.exec(rule.body);
+      assert.strictEqual(bad, null, `forbidden property in "${rule.prelude}"`);
+    }
+  });
+
+  test('leaves the input editor to VS Code', () => {
+    for (const rule of rules) {
+      assert.doesNotMatch(rule.prelude, INPUT_EDITOR, rule.prelude);
+    }
+  });
+
+  test('keeps the input box geometry VS Code computes: tokens only on the box, margins only on the part', () => {
+    for (const rule of rules) {
+      for (const selector of splitSelectors(rule.prelude)) {
+        if (selector.endsWith('.chat-input-container')) {
+          assert.ok(properties(rule.body).every((p) => p.startsWith('--')), rule.prelude);
+        }
+        if (selector.endsWith('.interactive-input-part')) {
+          assert.deepStrictEqual(properties(rule.body).sort(), ['--chat-input-radius', 'margin-inline']);
+        }
+      }
+    }
+  });
+
+  test("the input part stays at VS Code's 950px layout width, centered", () => {
+    assert.ok(css.includes('margin-inline:max(12px,calc((100% - 926px) / 2));'));
+  });
+});
+
+suite('copilot-theme.css — assets', () => {
+  test('every url() points at a declared theme asset, and every asset is used', () => {
+    const css = read(THEME.blocks.workbench.cssFile);
+    assert.deepStrictEqual(urls(css).sort(), THEME.blocks.workbench.assets.map((a) => a.target).sort());
+  });
+});
+
+suite('Copilot CSS — health check coverage', () => {
+  test('REQUIRED_CHAT_CLASSES lists exactly the classes both files name', () => {
+    const used = new Set<string>();
+    for (const file of [THEME.blocks.workbench.cssFile, RTL.blocks.workbench.cssFile]) {
+      for (const rule of topLevelRules(read(file)).filter((r) => !r.prelude.startsWith('@'))) {
+        for (const name of classNames(rule.prelude)) {
+          used.add(name);
+        }
+      }
+    }
+    assert.deepStrictEqual([...used].sort(), [...REQUIRED_CHAT_CLASSES].sort());
   });
 });

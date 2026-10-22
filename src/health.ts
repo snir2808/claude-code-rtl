@@ -1,5 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { escapeRegExp, stripBlock } from './blocks';
+import { FEATURES } from './features';
+import { workbenchCssPath } from './workbench';
 
 /**
  * Class-name prefixes the blocks rely on; each must still appear as
@@ -124,4 +127,102 @@ export function formatHealthWarning(version: string, report: HealthReport): stri
   const changed = report.unreadableFiles.length > 0 ? 'its webview files' : 'its markup';
   return `BiDi Theme: Claude Code ${version} changed ${changed}, so parts of the theme may not apply. ` +
     details.join(' ');
+}
+
+/**
+ * Class names the Copilot chat blocks rely on; each must still appear as
+ * `.name` in VS Code's workbench CSS, without this extension's blocks. Every
+ * class css/copilot-theme.css and css/copilot-rtl.css name is here, and
+ * nothing else (src/test/copilot-css.test.ts checks that).
+ */
+export const REQUIRED_CHAT_CLASSES: readonly string[] = [
+  // the scope: dark themes, the chat view or editor tab, not inline chat
+  'monaco-workbench',
+  'vs-dark',
+  'chat-viewpane',
+  'editor-instance',
+  'interactive-session',
+  'chat-widget',
+  // the conversation
+  'interactive-list',
+  'interactive-item-container',
+  'interactive-request',
+  'interactive-response',
+  'value',
+  'rendered-markdown',
+  'interactive-result-code-block',
+  'chat-inline-anchor-widget',
+  'chat-codeblock-pill-container',
+  // activity
+  'chat-used-context',
+  'chat-used-context-label',
+  'chat-tool-invocation-part',
+  'chat-terminal-content-part',
+  'progress-container',
+  // the composer
+  'interactive-input-part',
+  'chat-input-container',
+  'chat-input-toolbars',
+  'chat-input-toolbar',
+  'chat-execute-toolbar',
+  'chat-secondary-toolbar',
+  'monaco-action-bar',
+  'actions-container',
+  'action-item',
+  'action-label',
+  'menu-entry',
+  'codicon',
+  'chat-input-picker-item',
+  'chat-input-picker-split',
+  'chat-input-picker-split-button',
+  'chat-submit-button',
+];
+
+export interface WorkbenchHealthReport {
+  /** The workbench CSS could not be read; nothing in it was checked. */
+  unreadable: boolean;
+  missingClasses: string[];
+}
+
+/**
+ * Checks VS Code's workbench CSS, given without this extension's blocks (they
+ * name the same classes); null stands for a file that could not be read.
+ */
+export function checkWorkbenchHealth(css: string | null): WorkbenchHealthReport {
+  if (css === null) {
+    return { unreadable: true, missingClasses: [] };
+  }
+  return {
+    unreadable: false,
+    missingClasses: REQUIRED_CHAT_CLASSES.filter((name) => !new RegExp(`\\.${escapeRegExp(name)}(?![\\w-])`).test(css)),
+  };
+}
+
+export function isWorkbenchHealthy(report: WorkbenchHealthReport): boolean {
+  return !report.unreadable && report.missingClasses.length === 0;
+}
+
+/** Never rejects. Reads the workbench CSS at appRoot and checks it without this extension's blocks. */
+export async function checkWorkbenchInstallHealth(appRoot: string): Promise<WorkbenchHealthReport> {
+  const css = await fs.promises.readFile(workbenchCssPath(appRoot), 'utf8').catch(() => null);
+  if (css === null) {
+    return checkWorkbenchHealth(null);
+  }
+  let pristine = css;
+  for (const feature of FEATURES) {
+    pristine = stripBlock(pristine, feature.blocks.workbench.markers);
+  }
+  return checkWorkbenchHealth(pristine);
+}
+
+/** The warning for an unhealthy workbench CSS; empty for a healthy one. */
+export function formatWorkbenchHealthWarning(version: string, report: WorkbenchHealthReport): string {
+  if (isWorkbenchHealthy(report)) {
+    return '';
+  }
+  if (report.unreadable) {
+    return `BiDi Theme: could not read the workbench CSS of VS Code ${version}, so the Copilot chat theme was not checked.`;
+  }
+  return `BiDi Theme: VS Code ${version} changed its chat markup, so parts of the Copilot chat theme may not apply. ` +
+    `Missing: ${report.missingClasses.map((name) => `.${name}`).join(', ')}.`;
 }
