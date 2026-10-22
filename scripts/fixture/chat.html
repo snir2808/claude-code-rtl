@@ -1,0 +1,246 @@
+<!doctype html>
+<!-- The Copilot chat fixture. scripts/render-chat-fixture.js serves it twice against VS Code's real
+     workbench.desktop.main.css with both blocks synced: with the workbench class vs-dark, and with vs
+     to check that none of the theme applies there (RTL applies in every theme). Both pages keep the
+     Dark Modern values below, so the light page checks the theme's scoping only, not how a light
+     theme looks. The markup follows VS Code 1.143's chat view: a request, a response with grouped
+     tool calls, thinking, a terminal command, markdown and a code block, and the input part. The
+     list rows flow here; VS Code positions them absolutely at heights it measures. Every class here
+     must exist in the workbench CSS under test (the script checks). -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="workbench.desktop.main.css">
+<style>
+/* What VS Code injects at runtime in <style> elements: theme colors (Dark Modern) and size tokens
+   on .monaco-workbench, and the list's own row colors. */
+.monaco-workbench{
+--vscode-foreground:#cccccc;
+--vscode-descriptionForeground:#9d9d9d;
+--vscode-disabledForeground:#cccccc80;
+--vscode-icon-foreground:#cccccc;
+--vscode-focusBorder:#0078d4;
+--vscode-sideBar-background:#181818;
+--vscode-editor-background:#1f1f1f;
+--vscode-editorWidget-background:#202020;
+--vscode-widget-border:#313131;
+--vscode-input-background:#313131;
+--vscode-input-border:#3c3c3c;
+--vscode-input-foreground:#cccccc;
+--vscode-input-placeholderForeground:#989898;
+--vscode-button-background:#0078d4;
+--vscode-button-foreground:#ffffff;
+--vscode-button-hoverBackground:#026ec1;
+--vscode-toolbar-hoverBackground:#5a5d5e50;
+--vscode-textLink-foreground:#4daafc;
+--vscode-textLink-activeForeground:#4daafc;
+--vscode-textPreformat-foreground:#d0d0d0;
+--vscode-textPreformat-background:#3c3c3c;
+--vscode-textCodeBlock-background:#2b2b2b;
+--vscode-textBlockQuote-background:#2b2b2b;
+--vscode-textBlockQuote-border:#616161;
+--vscode-textSeparator-foreground:#21262d;
+--vscode-chat-requestBubbleBackground:#264f784d;
+--vscode-chat-requestBubbleHoverBackground:#264f7899;
+--vscode-chat-requestBorder:#ffffff1a;
+--vscode-chat-requestCodeBorder:#ffffff1a;
+--vscode-chat-font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+--monaco-monospace-font:Menlo,Monaco,"Courier New",monospace;
+--vscode-bodyFontSize:13px;
+--vscode-codiconFontSize:16px;
+--vscode-codiconFontSize-compact:12px;
+--vscode-cornerRadius-circle:9999px;
+--vscode-cornerRadius-large:8px;
+--vscode-cornerRadius-medium:6px;
+--vscode-cornerRadius-small:4px;
+--vscode-cornerRadius-xLarge:12px;
+--vscode-cornerRadius-xSmall:2px;
+--vscode-fontSize-body1:13px;
+--vscode-fontSize-label1:12px;
+--vscode-fontSize-label2:11px;
+--vscode-fontSize-label3:10px;
+--vscode-fontWeight-semiBold:600;
+--vscode-spacing-size20:2px;
+--vscode-spacing-size40:4px;
+--vscode-spacing-size60:6px;
+--vscode-spacing-size80:8px;
+--vscode-spacing-size100:10px;
+--vscode-spacing-size120:12px;
+--vscode-spacing-size160:16px;
+--vscode-spacing-size200:20px;
+--vscode-strokeThickness:1px;
+}
+/* VS Code's list styles target .monaco-list.list_id_N; the id is left out here. */
+.interactive-list .monaco-list .monaco-list-rows{background:var(--vscode-sideBar-background)}
+/* Fixture only: the page is the chat view, and the rows flow. */
+html,body{height:100%;margin:0}
+.monaco-workbench{height:100%;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;color:var(--vscode-foreground);background:var(--vscode-sideBar-background)}
+.chat-viewpane{height:100%;display:flex;flex-direction:column}
+.monaco-list-row{position:relative!important}
+</style>
+</head>
+<body>
+<div class="monaco-workbench mac __THEME_CLASS__">
+<div class="pane-body chat-viewpane">
+<div class="chat-controls-container">
+<div class="interactive-session" style="font-size: 13px; --vscode-interactive-session-foreground: #cccccc; --vscode-chat-list-background: #181818; --vscode-interactive-result-editor-background-color: #1f1f1f;">
+<div class="interactive-list">
+<div class="monaco-list mouse-support">
+<div class="monaco-scrollable-element">
+<div class="monaco-list-rows">
+
+<div class="monaco-list-row request" data-index="0">
+<div class="monaco-tl-row"><div class="monaco-tl-twistie"></div><div class="monaco-tl-contents">
+<div class="interactive-item-container interactive-request" id="request-he">
+<div class="header header-disabled"></div>
+<div class="value">
+<div class="chat-markdown-part rendered-markdown" id="bubble-he"><p id="request-he-text">תסביר לי מה עושה הפונקציה <code>syncInstall</code> ולמה היא כותבת קודם את הגופנים</p></div>
+</div>
+</div>
+</div></div>
+</div>
+
+<div class="monaco-list-row response" data-index="1">
+<div class="monaco-tl-row"><div class="monaco-tl-twistie"></div><div class="monaco-tl-contents">
+<div class="interactive-item-container interactive-response chat-persistent-progress chat-most-recent-response" id="response">
+<div class="header"><div class="user"><div class="avatar-container hidden"></div><h3 class="username hidden">GitHub Copilot</h3></div><span class="detail-container"><span class="detail"></span></span></div>
+<div class="value">
+<div class="chat-used-context chat-thinking-box chat-collapsible-not-expandable" id="auto-route"><div class="chat-used-context-label"><div class="monaco-button monaco-icon-button monaco-text-button"><div class="codicon codicon-check"></div><span class="monaco-button-mdlabel">Auto routed task to GPT-5 mini</span></div></div></div>
+<div class="chat-used-context chat-used-context-collapsed" id="references"><div class="chat-used-context-label"><div class="monaco-button monaco-icon-button monaco-text-button"><span class="monaco-button-mdlabel">Used 2 references</span><span class="codicon chat-collapsible-hover-chevron"></span></div></div><div class="chat-used-context-list"></div></div>
+<div class="chat-used-context chat-thinking-box chat-tool-chain" id="tool-chain">
+<div class="chat-used-context-label"><div class="monaco-button monaco-icon-button monaco-text-button"><span class="monaco-button-mdlabel" id="tool-chain-title">Read 2 files, ran 1 command</span></div></div>
+<div class="chat-used-context-list chat-thinking-collapsible">
+<div class="chat-thinking-item markdown-content" id="thinking-text"><div class="rendered-markdown"><p>I should read sync.ts first, then check where the fonts are copied.</p></div></div>
+<div class="chat-thinking-tool-wrapper"><span class="chat-thinking-icon codicon"></span><div class="chat-tool-invocation-part" id="tool-read"><div class="progress-container"><div class="codicon codicon-check"></div><div class="rendered-markdown progress-step"><p>Read <span class="chat-inline-anchor-widget">sync.ts</span>, lines 1 to 111</p></div></div></div></div>
+<div class="chat-thinking-tool-wrapper"><span class="chat-thinking-icon codicon codicon-terminal"></span><div class="chat-used-context chat-terminal-thinking-collapsible"><div class="chat-used-context-list chat-terminal-thinking-content"><div class="chat-terminal-content-part" id="terminal"><div class="chat-terminal-content-title"><div class="chat-terminal-command-block"><div class="rendered-markdown"><p><code>npm test</code></p></div></div></div></div></div></div></div>
+</div>
+</div>
+<div class="chat-markdown-part rendered-markdown" id="answer">
+<h2 id="answer-h2">מה הפונקציה עושה</h2>
+<p id="answer-he">הפונקציה מביאה את קובץ ה־CSS של Claude Code למצב שמתאים למודולים שמופעלים, ואז מעתיקה את <code id="inline-code">rubik-hebrew.woff2</code> לתיקייה.</p>
+<p id="answer-en">In short: fonts are copied before the CSS is written, so the CSS never points at a missing font.</p>
+<ul id="answer-list"><li id="li-he">קודם הגופנים</li><li id="li-en">Then the CSS, atomically</li></ul>
+<div class="code" data-code="0"><div class="interactive-result-code-block" id="code-block"><div class="interactive-result-editor"><div class="monaco-editor" style="width:100%;height:42px"><div class="overflow-guard" style="width:100%;height:42px;padding:12px 16px;box-sizing:border-box"><div class="monaco-editor-background"></div><div class="lines-content"><div class="view-lines" style="font-family:Menlo,monospace;font-size:12px;line-height:18px"><div class="view-line"><span><span class="mtk1">await syncInstall(dir, root, enabled);</span></span></div></div></div></div></div></div></div></div>
+<p><a href="#" id="link">Read more</a></p>
+</div>
+<div class="progress-container chat-working-progress" id="progress"><div class="codicon codicon-loading"></div><div class="rendered-markdown progress-step"><p>Working</p></div></div>
+</div>
+</div>
+</div></div>
+</div>
+
+<div class="monaco-list-row request" data-index="2">
+<div class="monaco-tl-row"><div class="monaco-tl-twistie"></div><div class="monaco-tl-contents">
+<div class="interactive-item-container interactive-request" id="request-en">
+<div class="header header-disabled"></div>
+<div class="value">
+<div class="chat-markdown-part rendered-markdown" id="bubble-en"><p id="request-en-text">Now explain cleanup.ts in English.</p></div>
+</div>
+</div>
+</div></div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+
+<div class="interactive-input-part chat-input-surface-stack" id="input-part">
+<div class="chat-input-stack">
+<div class="interactive-input-and-side-toolbar">
+<div class="chat-input-container focused" id="input-box">
+<div class="chat-attachments-container"><div class="chat-attached-context"></div></div>
+<div class="chat-editor-container"><div class="interactive-input-editor"><div class="monaco-editor" id="input-editor" style="width:100%;height:44px"><div class="overflow-guard" style="width:100%;height:44px"><div class="monaco-editor-background"></div><div class="lines-content"><div class="view-lines" style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:20px;padding-top:12px"><div class="view-line"><span><span class="mtk1" id="input-text">ובדוק גם את uninstall.ts</span></span></div></div></div></div></div></div></div>
+<div class="chat-input-toolbars" id="toolbars">
+<div class="monaco-toolbar chat-input-toolbar responsive" id="input-toolbar"><div class="monaco-action-bar"><ul class="actions-container">
+<li class="action-item menu-entry" id="attach"><a class="action-label codicon codicon-add-compact" role="button" aria-label="Add Context"></a></li>
+<li class="action-item chat-input-picker-item" id="mode-picker"><a class="action-label" role="button"><span class="codicon"></span><span class="chat-input-picker-label">Agent</span><span class="codicon codicon-chevron-down"></span></a></li>
+<li class="action-item chat-input-picker-item model-picker-item" id="model-picker"><div class="action-label model-picker-split chat-input-picker-split" role="group"><a class="chat-input-picker-split-button model-picker-section model-picker-name" role="button" id="model-name"><span class="chat-input-picker-label">Auto</span><span class="codicon codicon-chevron-down"></span></a><a class="chat-input-picker-split-button chat-input-picker-split-secondary model-picker-section model-picker-config model-picker-config-summary" role="button" id="model-config">Balance</a></div></li>
+</ul></div></div>
+<div class="monaco-toolbar chat-execute-toolbar" id="execute-toolbar"><div class="monaco-action-bar"><ul class="actions-container">
+<li class="action-item" id="mic"><a class="action-label codicon codicon-mic-compact" role="button" aria-label="Voice"></a></li>
+<li class="action-item menu-entry chat-submit-button" id="send-item"><a class="action-label codicon codicon-arrow-up-compact" role="button" aria-label="Send" id="send"></a></li>
+</ul></div></div>
+</div>
+</div>
+</div>
+</div>
+<div class="chat-secondary-toolbar" id="secondary-toolbar">
+<div class="chat-responsive-picker-container"><div class="monaco-toolbar chat-secondary-input-toolbar"><div class="monaco-action-bar"><ul class="actions-container">
+<li class="action-item chat-input-picker-item" id="permissions-picker"><a class="action-label" role="button"><span class="chat-input-picker-label">Manual permissions</span></a></li>
+</ul></div></div></div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+<script>
+document.fonts.ready.then(() => {
+  const q = (s) => document.querySelector(s);
+  const cs = (s, pseudo) => getComputedStyle(q(s), pseudo);
+  const rect = (s) => q(s).getBoundingClientRect();
+  const width = (s) => Math.round(rect(s).width);
+  const pill = (s) => {
+    const style = cs(`${s} > .action-label`);
+    return {
+      height: Math.round(q(`${s} > .action-label`).getBoundingClientRect().height),
+      background: style.backgroundColor,
+      border: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+      radius: style.borderTopLeftRadius,
+      size: style.fontSize,
+    };
+  };
+  const report = {
+    fontsLoaded: [...document.fonts].filter((f) => f.family.replace(/"/g, '') === 'BiDi Rubik' && f.status === 'loaded').length,
+    textFont: cs('#answer-en').fontFamily,
+    textSize: cs('#answer-en').fontSize,
+    lineHeight: cs('#answer-en').lineHeight,
+    textColor: cs('#answer-en').color,
+    h2: `${cs('#answer-h2').fontSize} ${cs('#answer-h2').fontWeight} ${cs('#answer-h2').color}`,
+    marker: cs('#li-en', '::marker').color,
+    link: cs('#link').color,
+    inlineCode: `${cs('#inline-code').backgroundColor} / ${cs('#inline-code').color}`,
+    codeBlock: `${cs('#code-block').backgroundColor} ${cs('#code-block').borderTopLeftRadius}`,
+    listBg: cs('.monaco-list-rows').backgroundColor,
+    sessionBg: cs('.interactive-session').backgroundColor,
+    sessionWidth: width('.interactive-session'),
+    viewportWidth: document.documentElement.clientWidth,
+    userBg: cs('#bubble-he').backgroundColor,
+    userColor: cs('#request-he-text').color,
+    userRadius: cs('#bubble-he').borderTopLeftRadius,
+    userBar: `${cs('#bubble-he').borderInlineStartWidth} ${cs('#bubble-he').borderInlineStartStyle} ${cs('#bubble-he').borderInlineStartColor}`,
+    userWidth: width('#bubble-en'),
+    requestContentWidth: (() => {
+      const el = q('#request-en');
+      const style = getComputedStyle(el);
+      return Math.round(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+    })(),
+    activity: `${cs('#tool-chain').backgroundColor} ${cs('#tool-chain').borderTopWidth} ${cs('#tool-chain').borderTopColor} ${cs('#tool-chain').borderTopLeftRadius}`,
+    activityText: `${cs('#tool-read .progress-step p').fontSize} ${cs('#tool-read .progress-step p').color}`,
+    toolTitle: cs('#tool-chain-title').color,
+    inputPartWidth: width('#input-part'),
+    inputBox: `${cs('#input-box').backgroundColor} ${cs('#input-box').borderTopColor} ${cs('#input-box').borderTopLeftRadius}`,
+    inputEditorBg: cs('#input-editor').backgroundColor,
+    inputTextSize: cs('#input-editor .view-lines').fontSize,
+    attach: (() => { const r = q('#attach > .action-label').getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; })(),
+    attachLeft: Math.round(rect('#attach').left - rect('#input-box').left),
+    modePicker: pill('#mode-picker'),
+    modelPicker: pill('#model-picker'),
+    pickersRight: Math.round(rect('#execute-toolbar').left - rect('#model-picker').right),
+    send: `${width('#send')}x${Math.round(rect('#send').height)} ${cs('#send').backgroundColor} ${cs('#send').color} ${cs('#send').borderTopLeftRadius}`,
+    secondaryColor: cs('#permissions-picker > .action-label').color,
+    dirAnswerHe: cs('#answer-he').direction,
+    alignAnswerHe: Math.round(rect('#answer-he').right - rect('#answer').right),
+    dirRequestHe: cs('#request-he-text').direction,
+    dirCode: cs('#code-block').direction,
+    dirTool: cs('#tool-read').direction,
+    dirToolbar: cs('#toolbars').direction,
+    bidiAnswerEn: cs('#answer-en').unicodeBidi,
+  };
+  document.body.setAttribute('data-report', JSON.stringify(report));
+});
+</script>
+</body>
+</html>
