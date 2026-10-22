@@ -452,7 +452,7 @@ git commit -m "feat: implement extension activate with patch + remove command"
 - [ ] **Step 1: Open the project folder in VSCode**
 
 ```bash
-code /Users/snirhakmoun/vscode-bidi-flipper
+code ~/vscode-bidi-flipper
 ```
 
 - [ ] **Step 2: Press `F5` to launch Extension Development Host**
