@@ -135,7 +135,7 @@ suite('copilot-theme.css — rules', () => {
     const [rule] = onEditor;
     assert.deepStrictEqual(properties(rule.body), ['font-family']);
     // Latin letters must keep the system font VS Code measures, so Rubik comes after it.
-    const fonts = oneLine(rule.body);
+    const fonts = rule.body;
     assert.ok(fonts.indexOf('-apple-system') < fonts.indexOf('"BiDi Rubik"'), rule.body);
     assert.ok(fonts.indexOf('system-ui') < fonts.indexOf('"BiDi Rubik"'), rule.body);
   });
