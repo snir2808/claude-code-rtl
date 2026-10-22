@@ -129,16 +129,16 @@ suite('extension — activate()', () => {
   function synced(ids: FeatureId[]): string {
     let css = HEALTHY_CSS;
     if (ids.includes('theme')) {
-      css = appendBlock(css, THEME.markers, themeBody);
+      css = appendBlock(css, THEME.blocks.claude.markers, themeBody);
     }
     if (ids.includes('rtl')) {
-      css = appendBlock(css, RTL.markers, rtlBody);
+      css = appendBlock(css, RTL.blocks.claude.markers, rtlBody);
     }
     return css;
   }
 
   const fontsIn = (dir: string): string[] =>
-    THEME.assets.map((a) => a.target).filter((target) => fs.existsSync(path.join(dir, 'webview', target)));
+    THEME.blocks.claude.assets.map((a) => a.target).filter((target) => fs.existsSync(path.join(dir, 'webview', target)));
 
   function item(command: string): FakeStatusBarItem {
     const found = fake.items.find((i) => i.command === command);
@@ -151,8 +151,8 @@ suite('extension — activate()', () => {
     fake.messages.filter((m) => m.kind === kind).map((m) => m.text);
 
   suiteSetup(() => {
-    themeBody = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
-    rtlBody = fs.readFileSync(path.join(ROOT, RTL.cssFile), 'utf8');
+    themeBody = fs.readFileSync(path.join(ROOT, THEME.blocks.claude.cssFile), 'utf8');
+    rtlBody = fs.readFileSync(path.join(ROOT, RTL.blocks.claude.cssFile), 'utf8');
   });
 
   setup(async () => {
@@ -175,11 +175,11 @@ suite('extension — activate()', () => {
 
   suite('modules', () => {
     test('upgrading from 0.0.3 migrates the RTL block and adds the theme block and fonts, both on', async () => {
-      const legacy = `${HEALTHY_CSS}\n${RTL.markers.start}\n[class*="messagesContainer_"]{direction:rtl}\n${RTL.markers.end}`;
+      const legacy = `${HEALTHY_CSS}\n${RTL.blocks.claude.markers.start}\n[class*="messagesContainer_"]{direction:rtl}\n${RTL.blocks.claude.markers.end}`;
       const dir = await installClaudeCode('2.1.287', legacy);
       await start();
       assert.strictEqual(cssOf(dir), synced(['theme', 'rtl']));
-      for (const asset of THEME.assets) {
+      for (const asset of THEME.blocks.claude.assets) {
         const copied = fs.readFileSync(path.join(dir, 'webview', asset.target));
         assert.ok(copied.equals(fs.readFileSync(path.join(ROOT, asset.source))), asset.target);
       }
@@ -202,7 +202,7 @@ suite('extension — activate()', () => {
 
       await commands.executeCommand('bidi-theme.toggle');
       assert.strictEqual(cssOf(dir), synced(['theme', 'rtl']));
-      assert.strictEqual(fontsIn(dir).length, THEME.assets.length);
+      assert.strictEqual(fontsIn(dir).length, THEME.blocks.claude.assets.length);
       assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
       assert.ok(texts('info').includes('BiDi Theme: turned on. Reload window to apply.'));
     });
@@ -256,7 +256,7 @@ suite('extension — activate()', () => {
       const prompts: string[] = [];
       fake.answer((message) => {
         if (message.text.startsWith('BiDi Theme: turned')) {
-          prompts.push(`${message.text} Theme block: ${cssOf(dir).includes(THEME.markers.start)}`);
+          prompts.push(`${message.text} Theme block: ${cssOf(dir).includes(THEME.blocks.claude.markers.start)}`);
         }
         return undefined;
       });
@@ -270,7 +270,7 @@ suite('extension — activate()', () => {
 
     test('a font that cannot be removed is logged as a font sync failure', async () => {
       const dir = await installClaudeCode('2.1.287');
-      await fs.promises.mkdir(path.join(dir, 'webview', THEME.assets[0].target)); // a folder where a font goes
+      await fs.promises.mkdir(path.join(dir, 'webview', THEME.blocks.claude.assets[0].target)); // a folder where a font goes
       const logged: string[] = [];
       const consoleError = console.error;
       console.error = (...args: unknown[]) => void logged.push(args.join(' '));
@@ -280,7 +280,7 @@ suite('extension — activate()', () => {
         console.error = consoleError;
       }
       assert.strictEqual(logged.length, 1, logged.join('\n'));
-      assert.ok(logged[0].startsWith(`BiDi Theme: font sync failed — ${THEME.assets[0].target}`), logged[0]);
+      assert.ok(logged[0].startsWith(`BiDi Theme: font sync failed — ${THEME.blocks.claude.assets[0].target}`), logged[0]);
     });
 
     test('each status item has its own id and name', async () => {

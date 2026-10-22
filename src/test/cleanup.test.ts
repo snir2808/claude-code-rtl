@@ -10,7 +10,7 @@ import { main } from '../uninstall';
 const ORIGINAL_A = '.a{color:red}\n.b{display:flex}';
 const ORIGINAL_B = '.c{margin:0}';
 const ORIGINAL_C = '.d{padding:0}';
-const OTHER = appendBlock('.other{top:0}', RTL.markers, '.x{}');
+const OTHER = appendBlock('.other{top:0}', RTL.blocks.claude.markers, '.x{}');
 
 async function write(file: string, content: string): Promise<void> {
   await fs.promises.mkdir(path.dirname(file), { recursive: true });
@@ -28,7 +28,7 @@ suite('cleanup — uninstall', () => {
   const install = (version: string): string =>
     path.join(root, `anthropic.claude-code-${version}-darwin-arm64`, 'webview', 'index.css');
   const fontsNextTo = (cssPath: string): string[] =>
-    THEME.assets.map((a) => path.join(path.dirname(cssPath), a.target));
+    THEME.blocks.claude.assets.map((a) => path.join(path.dirname(cssPath), a.target));
 
   setup(async () => {
     root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'bidi-cleanup-'));
@@ -36,9 +36,9 @@ suite('cleanup — uninstall', () => {
     cssB = install('2.1.292');
     cssC = install('2.1.300');
     cssD = path.join(root, 'some.other-ext', 'webview', 'index.css');
-    await write(cssA, appendBlock(ORIGINAL_A, RTL.markers, '.r{}'));
+    await write(cssA, appendBlock(ORIGINAL_A, RTL.blocks.claude.markers, '.r{}'));
     await write(cssB, ORIGINAL_B);
-    await write(cssC, appendBlock(appendBlock(ORIGINAL_C, THEME.markers, '.t{}'), RTL.markers, '.r{}'));
+    await write(cssC, appendBlock(appendBlock(ORIGINAL_C, THEME.blocks.claude.markers, '.t{}'), RTL.blocks.claude.markers, '.r{}'));
     fontsC = fontsNextTo(cssC);
     for (const font of fontsC) {
       await write(font, 'font');
@@ -102,7 +102,7 @@ suite('cleanup — uninstall', () => {
     const result = await cleanupAll(root);
     assert.strictEqual(result.cleaned, 1); // cssA; cssC is not fully clean
     assert.strictEqual(result.failures.length, 1);
-    assert.ok(result.failures[0].includes(THEME.assets[0].target), result.failures[0]);
+    assert.ok(result.failures[0].includes(THEME.blocks.claude.assets[0].target), result.failures[0]);
     assert.strictEqual(await fs.promises.readFile(cssC, 'utf8'), ORIGINAL_C);
     assert.ok(!fs.existsSync(fontsC[1]), fontsC[1]);
   });

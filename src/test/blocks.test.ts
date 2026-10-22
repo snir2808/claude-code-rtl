@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { FEATURES, RTL, THEME } from '../features';
+import { FEATURES, RTL, TARGETS, THEME } from '../features';
 import { REQUIRED_CLASS_PREFIXES } from '../health';
 import { appendBlock, stripBlock } from '../blocks';
 
@@ -45,17 +45,44 @@ suite('features — registry', () => {
     assert.deepStrictEqual(FEATURES.map((f) => f.id), ['theme', 'rtl']);
   });
 
+  test('every module has a block for each target', () => {
+    assert.deepStrictEqual(TARGETS, ['claude', 'workbench']);
+    for (const feature of FEATURES) {
+      assert.deepStrictEqual(Object.keys(feature.blocks).sort(), [...TARGETS].sort(), feature.id);
+    }
+  });
+
   test('RTL keeps the markers existing installs already have', () => {
-    assert.deepStrictEqual(RTL.markers, {
+    assert.deepStrictEqual(RTL.blocks.claude.markers, {
       start: '/* bidi-rtl-patch-start */',
       end: '/* bidi-rtl-patch-end */',
     });
   });
 
-  test('theme assets are woff2 files prefixed bidi-theme-', () => {
-    assert.ok(THEME.assets.length > 0);
-    for (const asset of THEME.assets) {
+  test('the workbench blocks have their own markers and CSS files', () => {
+    assert.deepStrictEqual(THEME.blocks.workbench.markers, {
+      start: '/* bidi-copilot-theme-start */',
+      end: '/* bidi-copilot-theme-end */',
+    });
+    assert.deepStrictEqual(RTL.blocks.workbench.markers, {
+      start: '/* bidi-copilot-rtl-start */',
+      end: '/* bidi-copilot-rtl-end */',
+    });
+    assert.strictEqual(THEME.blocks.workbench.cssFile, 'css/copilot-theme.css');
+    assert.strictEqual(RTL.blocks.workbench.cssFile, 'css/copilot-rtl.css');
+  });
+
+  test('theme assets are woff2 files prefixed bidi-theme-, the same in both targets', () => {
+    assert.ok(THEME.blocks.claude.assets.length > 0);
+    assert.deepStrictEqual(THEME.blocks.workbench.assets, THEME.blocks.claude.assets);
+    for (const asset of THEME.blocks.claude.assets) {
       assert.match(asset.target, /^bidi-theme-[a-z-]+\.woff2$/);
+    }
+  });
+
+  test('RTL has no assets in any target', () => {
+    for (const target of TARGETS) {
+      assert.deepStrictEqual(RTL.blocks[target].assets, [], target);
     }
   });
 });
@@ -64,7 +91,7 @@ suite('rtl.css', () => {
   let RTL_CSS: string;
 
   suiteSetup(() => {
-    RTL_CSS = fs.readFileSync(path.join(ROOT, RTL.cssFile), 'utf8');
+    RTL_CSS = fs.readFileSync(path.join(ROOT, RTL.blocks.claude.cssFile), 'utf8');
   });
 
   test('holds only the block body, without markers', () => {
@@ -102,8 +129,8 @@ suite('hash-free selectors', () => {
   });
 
   for (const feature of [RTL, THEME]) {
-    test(`${feature.cssFile} names no hashed class`, () => {
-      const css = withoutComments(fs.readFileSync(path.join(ROOT, feature.cssFile), 'utf8'));
+    test(`${feature.blocks.claude.cssFile} names no hashed class`, () => {
+      const css = withoutComments(fs.readFileSync(path.join(ROOT, feature.blocks.claude.cssFile), 'utf8'));
       assert.strictEqual(HASHED_CLASS.exec(css), null);
     });
   }

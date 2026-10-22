@@ -85,7 +85,7 @@ suite('theme.css — rules', () => {
   let rules: TopLevelRule[];
 
   suiteSetup(() => {
-    css = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
+    css = fs.readFileSync(path.join(ROOT, THEME.blocks.claude.cssFile), 'utf8');
     rules = topLevelRules(css);
   });
 
@@ -125,7 +125,7 @@ suite('theme.css — assets', () => {
   let css: string;
 
   suiteSetup(() => {
-    css = fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8');
+    css = fs.readFileSync(path.join(ROOT, THEME.blocks.claude.cssFile), 'utf8');
   });
 
   test('url() references are found in every quoting style', () => {
@@ -137,11 +137,11 @@ suite('theme.css — assets', () => {
   });
 
   test('every url() points at a declared theme asset, and every asset is used', () => {
-    assert.deepStrictEqual(urls(css).sort(), THEME.assets.map((a) => a.target).sort());
+    assert.deepStrictEqual(urls(css).sort(), THEME.blocks.claude.assets.map((a) => a.target).sort());
   });
 
   test('every asset source is a woff2 file', () => {
-    for (const asset of THEME.assets) {
+    for (const asset of THEME.blocks.claude.assets) {
       const magic = fs.readFileSync(path.join(ROOT, asset.source)).subarray(0, 4).toString('latin1');
       assert.strictEqual(magic, 'wOF2', asset.source);
     }
@@ -181,7 +181,7 @@ suite('theme.css — health check coverage', () => {
   let selectors: AttributeSelector[];
 
   suiteSetup(() => {
-    selectors = attributeSelectors(fs.readFileSync(path.join(ROOT, THEME.cssFile), 'utf8'));
+    selectors = attributeSelectors(fs.readFileSync(path.join(ROOT, THEME.blocks.claude.cssFile), 'utf8'));
   });
 
   test('every class prefix it matches is in REQUIRED_CLASS_PREFIXES', () => {

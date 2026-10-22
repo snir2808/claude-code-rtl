@@ -38,7 +38,7 @@ export async function cleanInstall(cssPath: string): Promise<boolean> {
   const content = await fs.promises.readFile(cssPath, 'utf8');
   let cleaned = content;
   for (const feature of FEATURES) {
-    cleaned = stripBlock(cleaned, feature.markers);
+    cleaned = stripBlock(cleaned, feature.blocks.claude.markers);
   }
   if (cleaned !== content) {
     await writeFileAtomic(cssPath, cleaned);
@@ -46,7 +46,7 @@ export async function cleanInstall(cssPath: string): Promise<boolean> {
   }
   const failures: string[] = [];
   for (const feature of FEATURES) {
-    for (const asset of feature.assets) {
+    for (const asset of feature.blocks.claude.assets) {
       try {
         await fs.promises.unlink(path.join(path.dirname(cssPath), asset.target));
         changed = true;

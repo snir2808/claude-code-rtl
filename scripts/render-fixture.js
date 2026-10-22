@@ -257,9 +257,9 @@ async function main() {
       throw new Error(`panel.html uses classes this index.css does not define: ${missing.join(', ')}`);
     }
     fs.mkdirSync(outDir, { recursive: true });
-    const synced = computeSyncedCss(css, new Set(['theme', 'rtl']), await loadBlockBodies(ROOT));
+    const synced = computeSyncedCss(css, new Set(['theme', 'rtl']), await loadBlockBodies(ROOT, 'claude'), 'claude');
     fs.writeFileSync(path.join(work, 'index.css'), synced);
-    for (const asset of THEME.assets) {
+    for (const asset of THEME.blocks.claude.assets) {
       fs.copyFileSync(path.join(ROOT, asset.source), path.join(work, asset.target));
     }
     for (const mode of ['dark', 'light']) {
