@@ -3238,5 +3238,7 @@ These steps touch the real VS Code installation, so the controller runs them, wi
    - The chat in the secondary side bar and in an editor tab.
    - Light and high-contrast themes unchanged.
    - Every Theme/RTL combination.
-   - No "corrupt installation" warning after a full restart.
+   - A window reload after the chat changed shows VS Code's "corrupt installation" warning (expected);
+     after Quit VS Code and reopening, no warning.
+   - Copy `.interactive-session`'s outerHTML once (Help → Toggle Developer Tools) to compare with the fixture.
 4. **Work Mac:** copy `vscode-bidi-rtl-0.2.0.vsix`, install it there with that VS Code's CLI, reload twice, and repeat the conversation check. If that VS Code is stable rather than Insiders, the health check reports any chat class names that differ.

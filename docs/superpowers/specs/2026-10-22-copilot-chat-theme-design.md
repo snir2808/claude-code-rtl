@@ -74,7 +74,15 @@ The feature registry gains a target dimension. Each module keeps one flag and on
 - **Missing targets:** a missing Claude Code install is skipped silently on activation and on updates. A toggle with no target at all shows the existing "not found" warning.
 - **Health check:** extended with the workbench target — the chat class names the Copilot blocks rely on must appear in the workbench CSS; same once-per-version warning, keyed by target and version.
 - **Uninstall cleanup:** strips the workbench blocks, deletes the copied fonts and restores the checksum, for the VS Code installation the hook runs from (its `appRoot` derived from `process.execPath`), in addition to every Claude Code install as today.
-- **Reload prompt:** after a workbench change the existing "Reload Window" offer applies; after a VS Code update this means one extra reload per update (unavoidable: the CSS loads before activation).
+- **Restart prompt:** VS Code's main process reads `product.json` once, at startup, so the new
+  checksum counts only after a full restart. After a change to the chat CSS, the prompt offers
+  **Quit VS Code** and **Reload Window**. It explains that a reload shows VS Code's harmless
+  "installation is corrupt" warning until the next restart *(changed after the final review)*.
+  A change to Claude Code alone still offers a window reload. Every VS Code update means one extra
+  restart.
+- **Write errors:** a chat CSS that cannot be written (VS Code installed where the user cannot
+  write) is reported once per VS Code version at activation, and every time on a toggle; after
+  that it is only logged *(changed after the Task 7 review)*.
 
 ---
 
@@ -109,7 +117,7 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 
 ### Layout and components
 
-- **Width:** messages use the full width of the chat view (override the native `max-width:950px` on `.interactive-session`). The input part keeps VS Code's layout width: at most 950px including its 12px margins, so 926px, centered *(changed while planning: VS Code sizes the input editor for that width, so a narrower box would clip it)*.
+- **Width:** messages use the full width of the chat view (override the native `max-width:950px` on `.interactive-session`). The input part keeps VS Code's layout width: at most 950px including its 12px margins, so 926px, centered *(changed while planning: VS Code sizes the input editor for that width, so a narrower box would clip it)*. Code blocks are laid out by VS Code at most 910px wide, so in a chat wider than 950px long code lines wrap there (accepted).
 - **Your messages:** a full-width block (not a right-aligned bubble): background `#262320`, radius 14px, padding 12px 16px, text `#f5f0e8`, `border-inline-start: 3px solid #d97757`.
 - **Responses:** markdown as above; code blocks radius 12px, padding 12px 16px.
 - **Activity:** status lines and parts — routing/progress lines, used references (`chat-used-context`), tool invocations (`chat-tool-invocation-part`), thinking (`chat-thinking-box`), terminal blocks (`chat-terminal-content-part`) — get the quiet box: surface `#211f1c`, 1px `#2b2824` border, radius 12px, 12.5px text `#968f83`. Consecutive parts read as one box where the DOM groups them; otherwise each part is its own box.
@@ -156,7 +164,7 @@ Redefine, inside the scope, the `--vscode-*` tokens the chat consumes so they re
 
 ### Manual (VS Code Insiders here, with Copilot Free)
 
-- A Copilot conversation with tools, code and Hebrew; input focused; light and high-contrast themes unchanged; all Theme/RTL toggle combinations; no "corrupt installation" warning after a reload; the chat in the side bar and in an editor tab.
+- A Copilot conversation with tools, code and Hebrew; input focused; light and high-contrast themes unchanged; all Theme/RTL toggle combinations; no "corrupt installation" warning after a full restart (a plain reload shows it until then); the chat in the side bar and in an editor tab.
 - Then on the work Mac: install the VSIX, reload, repeat the conversation check.
 
 ---
