@@ -6,6 +6,8 @@ import { cleanupAll, findClaudeCodeCssPaths } from '../cleanup';
 import { RTL, THEME } from '../features';
 import { appendBlock } from '../blocks';
 import { main } from '../uninstall';
+import { computeChecksum } from '../checksum';
+import { WORKBENCH_CSS, workbenchCssPath } from '../workbench';
 
 const ORIGINAL_A = '.a{color:red}\n.b{display:flex}';
 const ORIGINAL_B = '.c{margin:0}';
@@ -116,6 +118,7 @@ suite('cleanup — uninstall', () => {
   suite('uninstall main()', () => {
     let logged: string[];
     let consoleLog: typeof console.log;
+    const NO_VSCODE = (): string => path.join(root, 'bin', 'node');
 
     setup(() => {
       logged = [];
@@ -128,9 +131,9 @@ suite('cleanup — uninstall', () => {
     });
 
     test('returns and logs the cleaned count', async () => {
-      assert.strictEqual(await main(root), 2);
+      assert.strictEqual(await main(root, NO_VSCODE()), 2);
       assert.strictEqual(await fs.promises.readFile(cssC, 'utf8'), ORIGINAL_C);
-      assert.strictEqual(await main(path.join(root, 'nope')), 0);
+      assert.strictEqual(await main(path.join(root, 'nope'), NO_VSCODE()), 0);
       assert.deepStrictEqual(logged, [
         'BiDi RTL & Theme: cleaned 2 Claude Code install(s).',
         'BiDi RTL & Theme: cleaned 0 Claude Code install(s).',
@@ -139,11 +142,41 @@ suite('cleanup — uninstall', () => {
 
     test('logs each install it could not clean', async () => {
       await fs.promises.mkdir(install('2.1.250'), { recursive: true });
-      assert.strictEqual(await main(root), 2);
+      assert.strictEqual(await main(root, NO_VSCODE()), 2);
       assert.strictEqual(logged.length, 2, logged.join('\n'));
       assert.strictEqual(logged[0], 'BiDi RTL & Theme: cleaned 2 Claude Code install(s); 1 could not be cleaned.');
       assert.ok(logged[1].startsWith('BiDi RTL & Theme: could not clean '), logged[1]);
       assert.ok(logged[1].includes('anthropic.claude-code-2.1.250'), logged[1]);
+    });
+
+    test('also cleans the chat of the VS Code it runs under and restores its checksum', async () => {
+      const contents = path.join(root, 'Code.app', 'Contents');
+      const appRoot = path.join(contents, 'Resources', 'app');
+      const css = workbenchCssPath(appRoot);
+      const patched = appendBlock(ORIGINAL_A, THEME.blocks.workbench.markers, '.t{}');
+      const product = (content: string): string => `{"checksums":{"${WORKBENCH_CSS}":"${computeChecksum(content)}"}}`;
+      await write(css, patched);
+      await write(path.join(appRoot, 'product.json'), product(patched));
+      await write(path.join(path.dirname(css), THEME.blocks.workbench.assets[0].target), 'font');
+
+      assert.strictEqual(await main(root, path.join(contents, 'MacOS', 'Electron')), 2);
+      assert.strictEqual(await fs.promises.readFile(css, 'utf8'), ORIGINAL_A);
+      assert.strictEqual(await fs.promises.readFile(path.join(appRoot, 'product.json'), 'utf8'), product(ORIGINAL_A));
+      assert.ok(!fs.existsSync(path.join(path.dirname(css), THEME.blocks.workbench.assets[0].target)));
+      assert.deepStrictEqual(logged, [
+        'BiDi RTL & Theme: cleaned 2 Claude Code install(s).',
+        `BiDi RTL & Theme: cleaned VS Code's chat CSS in ${appRoot}.`,
+      ]);
+    });
+
+    test('logs a chat CSS it could not clean', async () => {
+      const contents = path.join(root, 'Code.app', 'Contents');
+      const appRoot = path.join(contents, 'Resources', 'app');
+      await write(workbenchCssPath(appRoot), appendBlock(ORIGINAL_A, THEME.blocks.workbench.markers, '.t{}'));
+      await fs.promises.mkdir(path.join(appRoot, 'product.json'), { recursive: true }); // unreadable
+      assert.strictEqual(await main(root, path.join(contents, 'MacOS', 'Electron')), 2);
+      assert.strictEqual(logged.length, 2, logged.join('\n'));
+      assert.ok(logged[1].startsWith("BiDi RTL & Theme: could not clean VS Code's chat CSS — "), logged[1]);
     });
   });
 });
