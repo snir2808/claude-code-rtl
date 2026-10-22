@@ -32,6 +32,8 @@ const CLAUDE_CODE_USAGE: UsageSource = { readAccessToken, fetchUsage: (token) =>
 const CLAUDE_EXTENSION_ID = 'anthropic.claude-code';
 const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
 const LAST_WARNED_WORKBENCH_KEY = 'bidiTheme.lastWarnedWorkbenchVersion';
+/** The VS Code version whose chat CSS write error activation last showed. */
+const LAST_CHAT_ERROR_KEY = 'bidiTheme.lastChatErrorVersion';
 const USAGE_FLAG = 'bidiUsage.enabled';
 /** Set when the clock's opt-in question is shown, so only one window or activation ever asks. */
 const USAGE_PROMPTED_KEY = 'bidiUsage.prompted';
@@ -323,12 +325,23 @@ export async function activate(
   };
 
   // VS Code's own chat, where Copilot runs, is styled by the workbench CSS.
-  const syncChat = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
+  const syncChat = async (
+    enabled: ReadonlySet<FeatureId>,
+    silent: boolean,
+    activation: boolean
+  ): Promise<SyncOutcome> => {
     let result: WorkbenchSyncResult | null;
     try {
       result = await syncWorkbench(vscode.env.appRoot, context.extensionPath, enabled);
     } catch (err: unknown) {
-      reportError("update VS Code's chat CSS", err, silent);
+      // A VS Code installed where this user cannot write fails in every
+      // window, so activation says so once per VS Code version and then only
+      // logs it. A toggle says so every time.
+      const shownBefore = context.globalState.get<string>(LAST_CHAT_ERROR_KEY) === vscode.version;
+      reportError("update VS Code's chat CSS", err, silent || (activation && shownBefore));
+      if (activation && !silent && !shownBefore) {
+        await context.globalState.update(LAST_CHAT_ERROR_KEY, vscode.version);
+      }
       return 'error';
     }
     if (!result) {
@@ -349,13 +362,18 @@ export async function activate(
     return result.cssChanged ? 'changed' : 'unchanged';
   };
 
-  // One sync of every target; callers run it through the queue.
-  const syncNow = async (silent: boolean): Promise<SyncOutcome> => {
+  // One sync of every target; callers run it through the queue. `activation`
+  // marks the sync each window runs when it starts.
+  const syncNow = async (silent: boolean, activation = false): Promise<SyncOutcome> => {
     const enabled = enabledIds();
-    return combineOutcomes([await syncClaudeCode(enabled, silent), await syncChat(enabled, silent)]);
+    return combineOutcomes([
+      await syncClaudeCode(enabled, silent),
+      await syncChat(enabled, silent, activation),
+    ]);
   };
 
-  const sync = (silent: boolean): Promise<SyncOutcome> => enqueue(() => syncNow(silent));
+  const sync = (silent: boolean, activation = false): Promise<SyncOutcome> =>
+    enqueue(() => syncNow(silent, activation));
 
   // Reads, sets and syncs one module's flag as one queued step, so quick
   // toggles apply in order and each reload prompt matches what was synced.
@@ -463,7 +481,7 @@ export async function activate(
   // The initial sync runs after everything is registered and never blocks
   // activation on a toast. A missing target is skipped silently: some people
   // use only Claude Code, others only Copilot.
-  if ((await sync(false)) === 'changed') {
+  if ((await sync(false, true)) === 'changed') {
     void offerReload('BiDi RTL & Theme: styles updated. Reload window to apply.');
   }
 }

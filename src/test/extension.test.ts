@@ -424,6 +424,36 @@ suite('extension — activate()', () => {
       assert.ok(texts('error')[0].includes("Could not update VS Code's chat CSS"), texts('error')[0]);
     });
 
+    test('a chat CSS that cannot be written is shown once per VS Code version at activation, and on every toggle', async () => {
+      const appRoot = await installWorkbench();
+      // A folder where writeFileAtomic puts its temp file makes every chat CSS write fail.
+      await fs.promises.mkdir(`${workbenchCssPath(appRoot)}.bidi-rtl-tmp-${process.pid}`);
+      const logged: string[] = [];
+      const consoleError = console.error;
+      console.error = (...args: unknown[]) => void logged.push(args.join(' '));
+      try {
+        const first = await start();
+        assert.strictEqual(texts('error').length, 1);
+        assert.ok(texts('error')[0].includes("Could not update VS Code's chat CSS"), texts('error')[0]);
+
+        stop(first);
+        const second = await start(first.globalState); // same version: logged only
+        assert.strictEqual(texts('error').length, 1);
+        assert.ok(logged.some((line) => line.includes("Could not update VS Code's chat CSS")), logged.join('\n'));
+
+        await commands.executeCommand('bidi-theme.toggle'); // a toggle always says so
+        assert.strictEqual(texts('error').length, 2);
+        assert.strictEqual(second.globalState.get(THEME.flagKey), true); // the only target failed: flag restored
+
+        stop(second);
+        fake.setVersion('1.144.0-insider');
+        await start(first.globalState); // a new version: shown again
+        assert.strictEqual(texts('error').length, 3);
+      } finally {
+        console.error = consoleError;
+      }
+    });
+
     test('a checksum that cannot be updated is logged, never shown', async () => {
       const appRoot = await installWorkbench();
       await fs.promises.rm(path.join(appRoot, 'product.json'));
