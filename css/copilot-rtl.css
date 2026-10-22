@@ -1,0 +1,39 @@
+/* RTL for VS Code's chat, in every theme. Only the message text turns
+   right-to-left: VS Code lays out the list, the toolbars and the input editor
+   in JS, and the input editor (Monaco) has no right-to-left mode, so those
+   keep their direction. Rules (enforced by src/test/copilot-css.test.ts): only
+   direction, text-align, unicode-bidi and list-marker placement, every
+   selector starting with .interactive-session. */
+
+/* Markdown, in your messages and in Copilot's: RTL blocks with
+   text-align:start, and each paragraph, heading and list item takes the
+   direction of its own text, so Hebrew paragraphs sit on the right and
+   English ones on the left. */
+.interactive-session .interactive-item-container .value .rendered-markdown{
+direction:rtl;
+text-align:start;
+unicode-bidi:isolate;
+}
+.interactive-session .interactive-item-container .value .rendered-markdown :is(p,h1,h2,h3,h4,h5,h6,li,blockquote,th,td){
+unicode-bidi:plaintext;
+text-align:start;
+}
+/* Inside markers + unicode-bidi:normal make each marker follow its item's language. */
+.interactive-session .interactive-item-container .value .rendered-markdown :is(ol,ul)>li{
+list-style-position:inside;
+}
+.interactive-session .interactive-item-container .value .rendered-markdown :is(ol,ul)>li::marker{
+unicode-bidi:normal;
+}
+.interactive-session .interactive-item-container .value .rendered-markdown ul>li::marker{
+content:"\2022  ";
+}
+/* Code, tool calls, terminal commands, file pills, progress lines and the
+   labels of collapsible parts stay LTR. */
+.interactive-session .interactive-item-container .value :is(.chat-tool-invocation-part,.chat-terminal-content-part,.progress-container,.chat-used-context-label),
+.interactive-session .interactive-item-container .value :is(.chat-tool-invocation-part,.chat-terminal-content-part,.progress-container) .rendered-markdown,
+.interactive-session .interactive-item-container .value .rendered-markdown :is(code,pre,.interactive-result-code-block,.chat-inline-anchor-widget,.chat-codeblock-pill-container){
+direction:ltr;
+text-align:left;
+unicode-bidi:isolate;
+}

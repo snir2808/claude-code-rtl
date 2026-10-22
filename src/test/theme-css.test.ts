@@ -3,80 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { THEME } from '../features';
 import { REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
+import { TopLevelRule, splitSelectors, topLevelRules, urls } from './css-rules';
 
 const ROOT = path.join(__dirname, '..', '..');
-
-interface TopLevelRule {
-  prelude: string;
-  body: string;
-}
-
-/** Splits a flat stylesheet (comments removed, no nesting) into top-level rules. */
-function topLevelRules(css: string): TopLevelRule[] {
-  const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  const rules: TopLevelRule[] = [];
-  let depth = 0;
-  let quote: string | null = null;
-  let start = 0;
-  let prelude = '';
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (quote) {
-      if (ch === quote) {
-        quote = null;
-      }
-    } else if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === '{') {
-      if (depth === 0) {
-        prelude = src.slice(start, i).trim();
-        start = i + 1;
-      }
-      depth++;
-    } else if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        rules.push({ prelude, body: src.slice(start, i) });
-        start = i + 1;
-      }
-    }
-  }
-  assert.strictEqual(depth, 0, 'unbalanced braces');
-  assert.strictEqual(src.slice(start).trim(), '', 'text after the last rule');
-  return rules;
-}
-
-/** Splits a selector list on commas outside quotes, brackets and parentheses. */
-function splitSelectors(prelude: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let quote: string | null = null;
-  let start = 0;
-  for (let i = 0; i < prelude.length; i++) {
-    const ch = prelude[i];
-    if (quote) {
-      if (ch === quote) {
-        quote = null;
-      }
-    } else if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === '(' || ch === '[') {
-      depth++;
-    } else if (ch === ')' || ch === ']') {
-      depth--;
-    } else if (ch === ',' && depth === 0) {
-      parts.push(prelude.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  parts.push(prelude.slice(start).trim());
-  return parts;
-}
-
-/** The url() references in a stylesheet: unquoted, single- or double-quoted. */
-function urls(css: string): string[] {
-  return [...css.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s'"]+))\s*\)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
-}
 
 // Each suite reads the file in suiteSetup, so a missing file fails its tests
 // instead of aborting the whole run while the suites are registered.
