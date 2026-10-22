@@ -120,7 +120,8 @@ suite('copilot-theme.css — rules', () => {
           assert.ok(properties(rule.body).every((p) => p.startsWith('--')), rule.prelude);
         }
         if (selector.endsWith('.interactive-input-part')) {
-          assert.deepStrictEqual(properties(rule.body).sort(), ['--chat-input-radius', 'margin-inline']);
+          // Tokens are fine; margin-inline is the only real property (VS Code computes the rest).
+          assert.deepStrictEqual(properties(rule.body).filter((p) => !p.startsWith('--')), ['margin-inline']);
         }
       }
     }

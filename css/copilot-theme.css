@@ -58,7 +58,7 @@ max-width:none;
 background:#1b1a18;
 }
 /* VS Code writes three resolved colors and the 13px chat font size inline on
-   .interactive-session; the list redefines them for the conversation. */
+   .interactive-session; the list and the input part redefine them. */
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-list{
 --vscode-interactive-session-foreground:#ebe5da;
 --vscode-chat-list-background:#1b1a18;
@@ -106,10 +106,12 @@ font-size:16px;
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-item-container .value .rendered-markdown li::marker{
 color:#d97757;
 }
-/* Code blocks: the block and the editor inside it both read the medium radius. */
+/* Code blocks: the block and the editor inside it both read the medium radius.
+   The border color goes through the token VS Code's border reads, so VS Code's
+   focus border still shows on a focused block. */
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-response .interactive-result-code-block{
 --vscode-cornerRadius-medium:12px;
-border-color:#2b2824;
+--vscode-input-border:#2b2824;
 border-radius:12px;
 }
 
@@ -139,6 +141,7 @@ margin-bottom:12px;
    toolbar, attach on the left, the pickers next to send on the right. */
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .interactive-input-part{
 --chat-input-radius:18px;
+--vscode-chat-list-background:#1b1a18;
 margin-inline:max(12px,calc((100% - 926px) / 2));
 }
 .monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session) .chat-input-container{

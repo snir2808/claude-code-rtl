@@ -41,7 +41,7 @@ function check(mode, r) {
     expect(r.marker === 'rgb(217, 119, 87)', `list marker: ${r.marker}`);
     expect(r.link === 'rgb(232, 160, 127)', `link: ${r.link}`);
     expect(r.inlineCode === 'rgb(43, 40, 36) / rgb(242, 184, 150)', `inline code: ${r.inlineCode}`);
-    expect(r.codeBlock === 'rgb(18, 17, 16) 12px', `code block: ${r.codeBlock}`);
+    expect(r.codeBlock === 'rgb(18, 17, 16) 12px rgb(43, 40, 36)', `code block: ${r.codeBlock}`);
     expect(r.listBg === 'rgb(27, 26, 24)' && r.sessionBg === 'rgb(27, 26, 24)', `backgrounds: list ${r.listBg}, session ${r.sessionBg}`);
     expect(r.sessionWidth === r.viewportWidth, `chat width: ${r.sessionWidth} (want the view's ${r.viewportWidth})`);
     expect(r.userBg === 'rgb(38, 35, 32)' && r.userColor === 'rgb(245, 240, 232)' && r.userRadius === '14px', `your message: ${r.userBg} ${r.userColor} ${r.userRadius}`);
