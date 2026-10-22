@@ -22,7 +22,7 @@
 - Fonts in the workbench target: `bidi-theme-rubik-hebrew.woff2` and `bidi-theme-rubik-latin.woff2`, copied to `<appRoot>/out/vs/workbench/`.
 - Checksum: `<appRoot>/product.json` → `checksums["vs/workbench/workbench.desktop.main.css"]`. The value is the base64 SHA-256 of the file without `=` padding. Only that one value is replaced, by exact string replacement (no JSON re-serialization), atomically. A checksum that cannot be written is logged, never shown.
 - A missing target is skipped silently on activation and on updates. Only a toggle with no target at all shows a warning.
-- `globalState` keys: `bidiTheme.enabled`, `bidiRtl.enabled` (default on, one flag for both targets), `bidiTheme.lastWarnedVersion` (Claude Code), `bidiTheme.lastWarnedWorkbenchVersion` (VS Code, new), `bidiUsage.enabled`, `bidiUsage.prompted`.
+- `globalState` keys: `bidiTheme.enabled`, `bidiRtl.enabled` (default on, one flag for both targets), `bidiTheme.lastWarnedVersion` (Claude Code), `bidiTheme.lastWarnedWorkbenchVersion` (VS Code, new), `bidiTheme.lastChatErrorVersion` (VS Code, new: the chat CSS write error shown at activation once per version; added after the Task 7 review), `bidiUsage.enabled`, `bidiUsage.prompted`.
 - `css/copilot-theme.css`:
   - Every style rule's selectors start with `.monaco-workbench.vs-dark :is(.chat-viewpane,.editor-instance) .interactive-session:not(.chat-widget>.interactive-session)`. That is the chat view and the chat editor tab in dark themes; inline chat and quick chat are excluded.
   - The only top-level at-rule is `@font-face`.
@@ -3163,8 +3163,9 @@ that one checksum after every change and restores it when the blocks are removed
 - While the theme is on, the extension also checks that the chat's class names it styles are
   still in VS Code, and warns once per VS Code version if some are gone.
 - When VS Code is installed where your user cannot write (for example an `/Applications` copy
-  owned by an administrator), the chat cannot be styled. The extension says so when a window
-  opens, and Claude Code is still styled.
+  owned by an administrator), the chat cannot be styled. The extension says so once per VS Code
+  version when a window opens (and every time you toggle a module), and Claude Code is still
+  styled.
 ```
 
 9. Replace the bullet that starts `- Uninstalling the extension removes the blocks and fonts by itself.` (both of its lines) with:
