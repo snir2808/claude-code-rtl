@@ -48,19 +48,43 @@ function formatError(action: string, err: unknown): string {
   const isPermission = err instanceof Error &&
     (err as NodeJS.ErrnoException).code === 'EACCES';
   const msg = err instanceof Error ? err.message : String(err);
-  const hint = isPermission ? ' Try running VSCode as administrator.' : '';
+  const hint = isPermission ? ' Check that your user account can write there.' : '';
   return `BiDi RTL & Theme: Could not ${action} — ${msg}.${hint}`;
 }
 
-async function offerReload(message: string): Promise<void> {
-  const choice = await vscode.window.showInformationMessage(message, 'Reload Window');
-  if (choice === 'Reload Window') {
-    await vscode.commands.executeCommand('workbench.action.reloadWindow')
-      .then(undefined, () => { /* reload unavailable; user will need to restart manually */ });
+const QUIT = 'Quit VS Code';
+const RELOAD = 'Reload Window';
+
+/**
+ * How to apply a change. VS Code checks its files against the checksums it read
+ * from product.json at startup, so after a chat change a window reload shows
+ * a harmless "installation is corrupt" warning until VS Code restarts.
+ */
+function applyHint(chatChanged: boolean): string {
+  return chatChanged
+    ? 'Quit and reopen VS Code to apply. A window reload also works, but VS Code then warns that its ' +
+        'installation is corrupt until it restarts (harmless).'
+    : 'Reload window to apply.';
+}
+
+async function offerReload(message: string, chatChanged: boolean): Promise<void> {
+  const choice = chatChanged
+    ? await vscode.window.showInformationMessage(message, QUIT, RELOAD)
+    : await vscode.window.showInformationMessage(message, RELOAD);
+  const command = choice === QUIT ? 'workbench.action.quit' : choice === RELOAD ? 'workbench.action.reloadWindow' : undefined;
+  if (command) {
+    await vscode.commands.executeCommand(command)
+      .then(undefined, () => { /* unavailable; the user can restart by hand */ });
   }
 }
 
 type SyncOutcome = 'changed' | 'unchanged' | 'error' | 'missing';
+
+/** What one sync of every target did; chatChanged is true when VS Code's chat CSS was rewritten. */
+interface SyncReport {
+  outcome: SyncOutcome;
+  chatChanged: boolean;
+}
 
 /**
  * One outcome for a sync of every target: missing when no target exists,
@@ -340,7 +364,9 @@ export async function activate(
       const shownBefore = context.globalState.get<string>(LAST_CHAT_ERROR_KEY) === vscode.version;
       reportError("update VS Code's chat CSS", err, silent || (activation && shownBefore));
       if (activation && !silent && !shownBefore) {
-        await context.globalState.update(LAST_CHAT_ERROR_KEY, vscode.version);
+        await context.globalState.update(LAST_CHAT_ERROR_KEY, vscode.version).then(undefined, (e: unknown) => {
+          console.error(formatError('remember the chat CSS error', e));
+        });
       }
       return 'error';
     }
@@ -348,7 +374,7 @@ export async function activate(
       return 'missing';
     }
     for (const assetError of result.assetErrors) {
-      console.error(`BiDi Theme: font sync failed — ${assetError}`);
+      console.error(`BiDi Theme: chat font sync failed — ${assetError}`);
     }
     if (result.checksumError) {
       // VS Code may then call the installation corrupt; the chat is styled anyway.
@@ -364,15 +390,14 @@ export async function activate(
 
   // One sync of every target; callers run it through the queue. `activation`
   // marks the sync each window runs when it starts.
-  const syncNow = async (silent: boolean, activation = false): Promise<SyncOutcome> => {
+  const syncNow = async (silent: boolean, activation = false): Promise<SyncReport> => {
     const enabled = enabledIds();
-    return combineOutcomes([
-      await syncClaudeCode(enabled, silent),
-      await syncChat(enabled, silent, activation),
-    ]);
+    const claude = await syncClaudeCode(enabled, silent);
+    const chat = await syncChat(enabled, silent, activation);
+    return { outcome: combineOutcomes([claude, chat]), chatChanged: chat === 'changed' };
   };
 
-  const sync = (silent: boolean, activation = false): Promise<SyncOutcome> =>
+  const sync = (silent: boolean, activation = false): Promise<SyncReport> =>
     enqueue(() => syncNow(silent, activation));
 
   // Reads, sets and syncs one module's flag as one queued step, so quick
@@ -381,16 +406,16 @@ export async function activate(
   const setFeature = async (
     feature: Feature,
     next: (enabled: boolean) => boolean
-  ): Promise<{ outcome: SyncOutcome; enabled: boolean }> => {
+  ): Promise<{ outcome: SyncOutcome; enabled: boolean; chatChanged: boolean }> => {
     const result = await enqueue(async () => {
       const previous = isEnabled(feature);
       const enabled = next(previous);
       await context.globalState.update(feature.flagKey, enabled);
-      const outcome = await syncNow(false);
-      if (outcome === 'missing' || outcome === 'error') {
+      const report = await syncNow(false);
+      if (report.outcome === 'missing' || report.outcome === 'error') {
         await context.globalState.update(feature.flagKey, previous);
       }
-      return { outcome, enabled };
+      return { outcome: report.outcome, enabled, chatChanged: report.chatChanged };
     });
     if (result.outcome === 'missing') {
       warnMissing();
@@ -420,25 +445,27 @@ export async function activate(
 
   for (const feature of FEATURES) {
     own(vscode.commands.registerCommand(feature.toggleCommand, async () => {
-      const { outcome, enabled } = await setFeature(feature, (on) => !on);
+      const { outcome, enabled, chatChanged } = await setFeature(feature, (on) => !on);
       if (outcome === 'changed' || outcome === 'unchanged') {
         void offerReload(
-          `BiDi ${feature.label}: turned ${enabled ? 'on' : 'off'}. Reload window to apply.`
+          `BiDi ${feature.label}: turned ${enabled ? 'on' : 'off'}. ${applyHint(chatChanged)}`,
+          chatChanged
         );
       }
     }));
   }
 
   own(vscode.commands.registerCommand('bidi-rtl.applyPatch', async () => {
-    if ((await setFeature(RTL, () => true)).outcome === 'changed') {
-      void offerReload('BiDi RTL: RTL patch applied. Reload window to apply.');
+    const { outcome, chatChanged } = await setFeature(RTL, () => true);
+    if (outcome === 'changed') {
+      void offerReload(`BiDi RTL: RTL patch applied. ${applyHint(chatChanged)}`, chatChanged);
     }
   }));
 
   own(vscode.commands.registerCommand('bidi-rtl.removePatch', async () => {
-    const { outcome } = await setFeature(RTL, () => false);
+    const { outcome, chatChanged } = await setFeature(RTL, () => false);
     if (outcome === 'changed') {
-      void offerReload('BiDi RTL: RTL patch removed. Reload window to apply.');
+      void offerReload(`BiDi RTL: RTL patch removed. ${applyHint(chatChanged)}`, chatChanged);
     } else if (outcome === 'unchanged') {
       void vscode.window.showInformationMessage('BiDi RTL: No RTL patch found — nothing to remove.');
     }
@@ -481,8 +508,9 @@ export async function activate(
   // The initial sync runs after everything is registered and never blocks
   // activation on a toast. A missing target is skipped silently: some people
   // use only Claude Code, others only Copilot.
-  if ((await sync(false, true)) === 'changed') {
-    void offerReload('BiDi RTL & Theme: styles updated. Reload window to apply.');
+  const report = await sync(false, true);
+  if (report.outcome === 'changed') {
+    void offerReload(`BiDi RTL & Theme: styles updated. ${applyHint(report.chatChanged)}`, report.chatChanged);
   }
 }
 

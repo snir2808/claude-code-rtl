@@ -24,6 +24,9 @@ const HEALTHY_CSS =
 const HEALTHY_JS = REQUIRED_JS_HOOKS.map((h) => `x("${h}")`).join(';');
 const HEALTHY_WORKBENCH_CSS = REQUIRED_CHAT_CLASSES.map((c) => `.${c}{color:red}`).join('\n');
 const RELOAD = 'BiDi RTL & Theme: styles updated. Reload window to apply.';
+const RESTART =
+  'BiDi RTL & Theme: styles updated. Quit and reopen VS Code to apply. A window reload also works, ' +
+  'but VS Code then warns that its installation is corrupt until it restarts (harmless).';
 const MISSING = "BiDi RTL & Theme: found neither Claude Code nor VS Code's chat stylesheet, so there is nothing to change.";
 /** A product.json laid out like VS Code's, holding the checksum of `css`. */
 const productJson = (css: string): string =>
@@ -352,14 +355,16 @@ suite('extension — activate()', () => {
   });
 
   suite('Copilot chat', () => {
-    test('without Claude Code, activation styles the chat, sets its checksum and offers a reload', async () => {
+    test('without Claude Code, activation styles the chat, sets its checksum and offers a restart', async () => {
       const appRoot = await installWorkbench();
       await start();
       assert.strictEqual(chatCssOf(appRoot), syncedChat(['theme', 'rtl']));
       assert.strictEqual(chatFontsIn(appRoot).length, THEME.blocks.workbench.assets.length);
       assert.strictEqual(productOf(appRoot), productJson(syncedChat(['theme', 'rtl'])));
       assert.deepStrictEqual(texts('warning'), []);
-      assert.ok(texts('info').includes(RELOAD));
+      const prompt = fake.messages.find((m) => m.text === RESTART);
+      assert.ok(prompt, texts('info').join('\n'));
+      assert.deepStrictEqual(prompt.items, ['Quit VS Code', 'Reload Window']);
     });
 
     test('one toggle updates Claude Code and the chat together, and off restores the checksum', async () => {
@@ -382,11 +387,36 @@ suite('extension — activate()', () => {
       const context = await start();
       assert.deepStrictEqual(texts('warning'), []);
       assert.ok(!texts('info').includes(RELOAD));
+      assert.ok(!texts('info').includes(RESTART));
 
       await commands.executeCommand('bidi-theme.toggle');
       assert.deepStrictEqual(texts('warning'), [MISSING]);
       assert.strictEqual(context.globalState.get(THEME.flagKey), true);
       assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
+    });
+
+    test('a toggle that changes the chat offers a restart, and Quit VS Code quits', async () => {
+      await installClaudeCode('2.1.287');
+      await installWorkbench();
+      await start();
+      fake.answer((message) => (message.items.includes('Quit VS Code') ? 'Quit VS Code' : undefined));
+      await commands.executeCommand('bidi-rtl.toggle');
+      await flush();
+      assert.ok(
+        texts('info').some((t) => t.startsWith('BiDi RTL: turned off. Quit and reopen VS Code to apply.')),
+        texts('info').join('\n')
+      );
+      assert.ok(fake.executed.includes('workbench.action.quit'), fake.executed.join(', '));
+      assert.ok(!fake.executed.includes('workbench.action.reloadWindow'));
+    });
+
+    test('a change to Claude Code alone still offers a window reload', async () => {
+      await installClaudeCode('2.1.287');
+      await start();
+      await commands.executeCommand('bidi-rtl.toggle');
+      const prompt = fake.messages.find((m) => m.text === 'BiDi RTL: turned off. Reload window to apply.');
+      assert.ok(prompt, texts('info').join('\n'));
+      assert.deepStrictEqual(prompt.items, ['Reload Window']);
     });
 
     test('the chat health warning shows once per VS Code version', async () => {
