@@ -1584,7 +1584,8 @@ Expected: PASS.
     containers[name] = el ? ancestry(el) : null;
   }
   const rootStyle = style(root);
-  const paragraph = doc.querySelector(HOOKS.paragraph);
+  // A loose list item's first paragraph runs inline with unicode-bidi:normal (css/codex-rtl.css): skip it.
+  const paragraph = doc.querySelector(`${HOOKS.paragraph}:not([class*="_ListItem_"] > :first-child)`);
   const report = {
     report: 'bidi-codex-diagnostics',
     version: 1,
