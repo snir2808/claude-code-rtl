@@ -1,9 +1,9 @@
 {
   "publisher": "local",
   "name": "vscode-bidi-rtl",
-  "displayName": "BiDi RTL & Theme for Claude Code and Copilot",
-  "description": "RTL direction and a warm reading theme for the Claude Code panel and VS Code's Copilot chat",
-  "version": "0.2.0",
+  "displayName": "BiDi RTL & Theme for Claude Code, Copilot and Codex",
+  "description": "RTL direction and a warm reading theme for the Claude Code panel, VS Code's Copilot chat and OpenAI's Codex panel",
+  "version": "0.3.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/snir2808/claude-code-rtl.git"
