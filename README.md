@@ -201,7 +201,8 @@ each time it opens its panel, so a change applies with a window reload, and ther
   update; if Codex's panel opened before that, reload the window to see the styles. While the
   theme is on, it checks that the parts of Codex it styles are still in Codex's stylesheets, and
   warns once per Codex version if some are gone. If Codex stops linking a stylesheet the extension
-  can find, the extension says so once per Codex version and leaves Codex as it is.
+  can find, the extension leaves Codex as it is and says so once per Codex version, and again each
+  time a toggle tries to style it.
 - When VS Code is installed where your user cannot write (for example an `/Applications` copy
   owned by an administrator), the chat cannot be styled. The extension says so once per VS Code
   version when a window opens (and every time you toggle a module), and Claude Code and Codex are
