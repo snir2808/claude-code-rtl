@@ -307,7 +307,12 @@ export async function checkCodexInstallHealth(cssPath: string): Promise<CodexHea
   let css: string;
   try {
     const names = (await fs.promises.readdir(dir)).filter((name) => name.endsWith('.css'));
-    css = (await Promise.all(names.map((name) => fs.promises.readFile(path.join(dir, name), 'utf8')))).join('\n');
+    const parts: string[] = [];
+    // One file at a time: Codex ships about 470 stylesheets, more than a low open-files limit.
+    for (const name of names) {
+      parts.push(await fs.promises.readFile(path.join(dir, name), 'utf8'));
+    }
+    css = parts.join('\n');
   } catch {
     return checkCodexHealth(null);
   }
