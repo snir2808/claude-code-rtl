@@ -49,8 +49,9 @@ const LAST_CODEX_LAYOUT_KEY = 'bidiCodex.lastLayoutWarnedVersion';
 const CODEX_DIAGNOSTICS = path.join('diagnostics', 'codex.js');
 const CODEX_DIAGNOSTICS_STEPS =
   'BiDi Codex: the diagnostics script is on the clipboard. Click in the Codex panel, run ' +
-  '"Developer: Open Webview Developer Tools" and open its Console. Type "allow pasting" the first time, ' +
-  'then paste and press Enter. The report it copies holds no message text.';
+  '"Developer: Open Webview Developer Tools" and open its Console. In the Console\'s context menu (top ' +
+  'left, it says "top"), pick an "active-frame" entry: with several, Codex\'s is one of them. Type ' +
+  '"allow pasting" the first time, then paste and press Enter. The report it copies holds no message text.';
 const USAGE_FLAG = 'bidiUsage.enabled';
 /** Set when the clock's opt-in question is shown, so only one window or activation ever asks. */
 const USAGE_PROMPTED_KEY = 'bidiUsage.prompted';

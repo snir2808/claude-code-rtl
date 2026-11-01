@@ -59,7 +59,7 @@
   const doc = codexDocument();
   if (!doc) {
     const message =
-      'BiDi: no Codex page in this frame. Pick "active-frame" in the Console\'s context menu (top left), then run this again.';
+      'BiDi: no Codex page in this frame. Pick "active-frame" in the Console\'s context menu (top left; with several, try each), then run this again.';
     console.warn(message);
     return { error: message };
   }
@@ -152,9 +152,16 @@
     stylesheets: [...doc.styleSheets].map((sheet) => (sheet.href ? sheet.href.split(/[?#]/)[0].split('/').pop() : 'inline')),
   };
   const json = JSON.stringify(report, null, 2);
+  const summary = [
+    `theme ${report.blocks.theme ? 'on' : 'off'}`,
+    `RTL ${report.blocks.rtl === null ? 'not seen yet' : report.blocks.rtl ? 'on' : 'off'}`,
+    `Rubik ${report.rubik.length === 0 ? 'missing' : report.rubik.join('/')}`,
+    `chat ${report.chatFontSize || '?'}`,
+  ].join(' · ');
+  console.log(`BiDi Codex: ${summary}`);
   if (typeof copy === 'function') {
     copy(json); // the DevTools Console's own helper
-    console.log('BiDi: the Codex report is on the clipboard. Paste it into a message to yourself.');
+    console.log('BiDi: the Codex report is on the clipboard.');
   } else {
     console.log(json);
   }

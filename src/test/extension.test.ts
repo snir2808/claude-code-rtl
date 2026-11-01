@@ -707,6 +707,7 @@ suite('extension — activate()', () => {
       assert.ok(steps, texts('info').join('\n'));
       assert.ok(steps.includes('Developer: Open Webview Developer Tools'), steps);
       assert.ok(steps.includes('allow pasting'), steps);
+      assert.ok(steps.includes('active-frame'), steps);
     });
 
     test('a Codex CSS that cannot be written is shown, and does not hold back Claude Code', async () => {

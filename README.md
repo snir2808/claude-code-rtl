@@ -110,9 +110,10 @@ After installing or updating, a quick check, in a dark theme with RTL on:
    8. after `BiDi Codex: Toggle Codex Styling On/Off` and a window reload, Codex looks as it did
       without the extension, and the Copilot chat keeps its theme. Run the command again, and
       reload, to bring the style back.
-3. Run `BiDi Codex: Copy Diagnostics Script` and follow the steps it shows. The script copies a
-   report on how the styles apply, without any message text. Paste the report into an issue,
-   with a screenshot of anything that looks wrong.
+3. Run `BiDi Codex: Copy Diagnostics Script` and follow the steps it shows: in the Console, pick
+   the `active-frame` entry before pasting. The script copies a report on how the styles apply,
+   without any message text; keep it with a screenshot of anything that looks wrong. A screenshot
+   can show conversations and file names, so check it before sharing it.
 
 ### Session clock
 
@@ -151,7 +152,7 @@ No telemetry, no network calls besides that one, and no settings to configure.
 
 This extension is distributed as a `.vsix` file (it's not on the Marketplace).
 
-1. Download `vscode-bidi-rtl-0.3.0.vsix` from the [latest release](../../releases/latest).
+1. Download `vscode-bidi-rtl-0.3.0.vsix` from the [releases page](../../releases).
 2. In VS Code: **Extensions** panel → `…` menu → **Install from VSIX…** → pick the file.
    Or from the terminal:
    ```bash
