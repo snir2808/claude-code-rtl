@@ -239,8 +239,8 @@ licensed under the SIL Open Font License 1.1 — see `fonts/OFL.txt`.
 ## Notes
 
 Built for personal use and shared as-is. It edits Claude Code's and Codex's own CSS and VS Code's
-workbench CSS, which is a bit of a hack by nature — if an update to either changes the markup, the
-patch may need updating. PRs welcome.
+workbench CSS, which is a bit of a hack by nature — if an update to any of them changes the
+markup, the patch may need updating. PRs welcome.
 
 ## License
 
