@@ -37,6 +37,14 @@
         "title": "BiDi Theme: Toggle Warm Theme On/Off"
       },
       {
+        "command": "bidi-codex.toggle",
+        "title": "BiDi Codex: Toggle Codex Styling On/Off"
+      },
+      {
+        "command": "bidi-codex.copyDiagnostics",
+        "title": "BiDi Codex: Copy Diagnostics Script"
+      },
+      {
         "command": "bidi-usage.toggle",
         "title": "BiDi Usage: Toggle Session Clock On/Off"
       },

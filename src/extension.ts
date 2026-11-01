@@ -1,10 +1,16 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
+import { CODEX_EXTENSION_ID, CodexSyncResult, syncCodex } from './codex';
 import { FEATURES, Feature, FeatureId, RTL } from './features';
 import {
+  checkCodexInstallHealth,
   checkInstallHealth,
   checkWorkbenchInstallHealth,
+  formatCodexHealthWarning,
   formatHealthWarning,
   formatWorkbenchHealthWarning,
+  isCodexHealthy,
   isHealthy,
   isWorkbenchHealthy,
 } from './health';
@@ -34,6 +40,17 @@ const LAST_WARNED_KEY = 'bidiTheme.lastWarnedVersion';
 const LAST_WARNED_WORKBENCH_KEY = 'bidiTheme.lastWarnedWorkbenchVersion';
 /** The VS Code version whose chat CSS write error activation last showed. */
 const LAST_CHAT_ERROR_KEY = 'bidiTheme.lastChatErrorVersion';
+const LAST_WARNED_CODEX_KEY = 'bidiTheme.lastWarnedCodexVersion';
+/** The Codex switch: Codex gets the enabled modules only while it is on (the default). */
+const CODEX_FLAG = 'bidiCodex.enabled';
+/** The Codex version whose missing stylesheet the warning last named. */
+const LAST_CODEX_LAYOUT_KEY = 'bidiCodex.lastLayoutWarnedVersion';
+/** The script for the Codex panel's DevTools, shipped with this extension. */
+const CODEX_DIAGNOSTICS = path.join('diagnostics', 'codex.js');
+const CODEX_DIAGNOSTICS_STEPS =
+  'BiDi Codex: the diagnostics script is on the clipboard. Click in the Codex panel, run ' +
+  '"Developer: Open Webview Developer Tools" and open its Console. Type "allow pasting" the first time, ' +
+  'then paste and press Enter. The report it copies holds no message text.';
 const USAGE_FLAG = 'bidiUsage.enabled';
 /** Set when the clock's opt-in question is shown, so only one window or activation ever asks. */
 const USAGE_PROMPTED_KEY = 'bidiUsage.prompted';
@@ -112,8 +129,13 @@ function reportError(action: string, err: unknown, silent: boolean): void {
 
 function warnMissing(): void {
   void vscode.window.showWarningMessage(
-    "BiDi RTL & Theme: found neither Claude Code nor VS Code's chat stylesheet, so there is nothing to change."
+    "BiDi RTL & Theme: found none of Claude Code, VS Code's chat stylesheet or Codex, so there is nothing to change."
   );
+}
+
+function codexLayoutWarning(version: string): string {
+  return `BiDi RTL & Theme: Codex ${version} links no stylesheet this extension can style (Codex changed its layout), ` +
+    'so Codex keeps its own look.';
 }
 
 export async function activate(
@@ -140,6 +162,7 @@ export async function activate(
     context.globalState.get<boolean>(feature.flagKey, true);
   const enabledIds = (): Set<FeatureId> =>
     new Set(FEATURES.filter(isEnabled).map((feature) => feature.id));
+  const isCodexOn = (): boolean => context.globalState.get<boolean>(CODEX_FLAG, true);
 
   // Separate ids, so the status bar's context menu can hide each item on its own.
   const statusItems = FEATURES.map((feature, index) => {
@@ -324,6 +347,33 @@ export async function activate(
     void vscode.window.showWarningMessage(formatWorkbenchHealthWarning(version, report));
   };
 
+  // Codex versions found healthy in this activation: each check reads Codex's stylesheets (3 MB).
+  const healthyCodexVersions = new Set<string>();
+
+  // At most one warning per Codex version, kept apart from the other targets'.
+  const warnIfCodexUnhealthy = async (version: string, cssPath: string): Promise<void> => {
+    if (healthyCodexVersions.has(version) || context.globalState.get<string>(LAST_WARNED_CODEX_KEY) === version) {
+      return;
+    }
+    const report = await checkCodexInstallHealth(cssPath);
+    if (isCodexHealthy(report)) {
+      healthyCodexVersions.add(version);
+      return;
+    }
+    await context.globalState.update(LAST_WARNED_CODEX_KEY, version);
+    void vscode.window.showWarningMessage(formatCodexHealthWarning(version, report));
+  };
+
+  // A Codex that links no stylesheet is said once per Codex version, then only logged.
+  const warnCodexLayout = async (version: string): Promise<void> => {
+    if (context.globalState.get<string>(LAST_CODEX_LAYOUT_KEY) === version) {
+      console.error(codexLayoutWarning(version));
+      return;
+    }
+    await context.globalState.update(LAST_CODEX_LAYOUT_KEY, version);
+    void vscode.window.showWarningMessage(codexLayoutWarning(version));
+  };
+
   const syncClaudeCode = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
     const ext = vscode.extensions.getExtension(CLAUDE_EXTENSION_ID);
     if (!ext) {
@@ -388,13 +438,50 @@ export async function activate(
     return result.cssChanged ? 'changed' : 'unchanged';
   };
 
+  // OpenAI's Codex panel: a webview whose stylesheet sits in Codex's install.
+  // While the Codex switch is off, Codex is synced with nothing enabled.
+  const syncCodexPanel = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
+    const ext = vscode.extensions.getExtension(CODEX_EXTENSION_ID);
+    if (!ext) {
+      return 'missing';
+    }
+    const version = String(ext.packageJSON?.version ?? 'unknown');
+    const codexEnabled: ReadonlySet<FeatureId> = isCodexOn() ? enabled : new Set();
+    let result: CodexSyncResult | null;
+    try {
+      result = await syncCodex(ext.extensionPath, context.extensionPath, codexEnabled);
+    } catch (err: unknown) {
+      reportError('update the Codex CSS', err, silent);
+      return 'error';
+    }
+    if (!result) {
+      if (!isCodexOn()) {
+        return 'unchanged'; // nothing of ours can be there, and Codex is not to be styled
+      }
+      await warnCodexLayout(version).catch((err: unknown) => {
+        console.error(formatError('remember the Codex layout warning', err));
+      });
+      return 'error';
+    }
+    for (const assetError of result.assetErrors) {
+      console.error(`BiDi Theme: Codex font sync failed — ${assetError}`);
+    }
+    if (codexEnabled.has('theme')) {
+      await warnIfCodexUnhealthy(version, result.cssPath).catch((err: unknown) => {
+        console.error(formatError('check Codex', err));
+      });
+    }
+    return result.cssChanged ? 'changed' : 'unchanged';
+  };
+
   // One sync of every target; callers run it through the queue. `activation`
   // marks the sync each window runs when it starts.
   const syncNow = async (silent: boolean, activation = false): Promise<SyncReport> => {
     const enabled = enabledIds();
     const claude = await syncClaudeCode(enabled, silent);
     const chat = await syncChat(enabled, silent, activation);
-    return { outcome: combineOutcomes([claude, chat]), chatChanged: chat === 'changed' };
+    const codex = await syncCodexPanel(enabled, silent);
+    return { outcome: combineOutcomes([claude, chat, codex]), chatChanged: chat === 'changed' };
   };
 
   const sync = (silent: boolean, activation = false): Promise<SyncReport> =>
@@ -471,6 +558,36 @@ export async function activate(
     }
   }));
 
+  // Codex on its own: the modules stay as they are for Claude Code and the chat.
+  own(vscode.commands.registerCommand('bidi-codex.toggle', async () => {
+    const { outcome, on } = await enqueue(async () => {
+      const previous = isCodexOn();
+      await context.globalState.update(CODEX_FLAG, !previous);
+      const result = await syncCodexPanel(enabledIds(), false);
+      if (result === 'error') {
+        await context.globalState.update(CODEX_FLAG, previous);
+      }
+      return { outcome: result, on: result === 'error' ? previous : !previous };
+    });
+    const state = on ? 'on' : 'off';
+    if (outcome === 'missing') {
+      void vscode.window.showInformationMessage(`BiDi Codex: turned ${state}. Codex is not installed in this VS Code.`);
+    } else if (outcome === 'changed' || outcome === 'unchanged') {
+      void offerReload(`BiDi Codex: turned ${state}. ${applyHint(false)}`, false);
+    }
+  }));
+
+  own(vscode.commands.registerCommand('bidi-codex.copyDiagnostics', async () => {
+    try {
+      const script = await fs.promises.readFile(path.join(context.extensionPath, CODEX_DIAGNOSTICS), 'utf8');
+      await vscode.env.clipboard.writeText(script);
+    } catch (err: unknown) {
+      reportError('copy the Codex diagnostics script', err, false);
+      return;
+    }
+    void vscode.window.showInformationMessage(CODEX_DIAGNOSTICS_STEPS);
+  }));
+
   const setUsageEnabled = async (on: boolean): Promise<void> => {
     usageGen++; // a refresh in flight must not undo the change
     await context.globalState.update(USAGE_FLAG, on);
@@ -507,7 +624,7 @@ export async function activate(
 
   // The initial sync runs after everything is registered and never blocks
   // activation on a toast. A missing target is skipped silently: some people
-  // use only Claude Code, others only Copilot.
+  // use only Claude Code, others only Copilot or Codex.
   const report = await sync(false, true);
   if (report.outcome === 'changed') {
     void offerReload(`BiDi RTL & Theme: styles updated. ${applyHint(report.chatChanged)}`, report.chatChanged);

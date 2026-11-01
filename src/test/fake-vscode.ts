@@ -82,6 +82,8 @@ function freshState() {
     executed: [] as string[],
     answer: (() => undefined) as Answer,
     claudeCode: undefined as FakeExtension | undefined,
+    codex: undefined as FakeExtension | undefined,
+    clipboard: '',
     windowState: new FakeEvent<{ focused: boolean }>(),
     extensionsChanged: new FakeEvent<void>(),
   };
@@ -130,12 +132,19 @@ export const commands = {
 
 export const extensions = {
   getExtension: (id: string): FakeExtension | undefined =>
-    id === 'anthropic.claude-code' ? current.claudeCode : undefined,
+    id === 'anthropic.claude-code' ? current.claudeCode : id === 'openai.chatgpt' ? current.codex : undefined,
   onDidChange: (listener: Listener<void>) => current.extensionsChanged.event(listener),
 };
 
-/** vscode.env: appRoot is '' (no workbench CSS) until a test calls fake.setAppRoot. */
-export const env = { appRoot: '' };
+/** vscode.env: appRoot is '' (no workbench CSS) until a test calls fake.setAppRoot; the clipboard is fake.clipboard. */
+export const env = {
+  appRoot: '',
+  clipboard: {
+    async writeText(text: string): Promise<void> {
+      current.clipboard = text;
+    },
+  },
+};
 
 const DEFAULT_VERSION = '1.143.0-insider';
 
@@ -143,7 +152,7 @@ const DEFAULT_VERSION = '1.143.0-insider';
 export let version = DEFAULT_VERSION;
 
 export const fake = {
-  /** Forgets everything: items, messages, commands, listeners, answers, Claude Code and the app root. */
+  /** Forgets everything: items, messages, commands, listeners, answers, Claude Code, Codex, the clipboard and the app root. */
   reset(): void {
     current = freshState();
     window.state.focused = true;
@@ -172,6 +181,14 @@ export const fake = {
   /** The Claude Code extension VS Code reports, or undefined when it is not installed. */
   setClaudeCode(extension: FakeExtension | undefined): void {
     current.claudeCode = extension;
+  },
+  /** The Codex extension VS Code reports, or undefined when it is not installed. */
+  setCodex(extension: FakeExtension | undefined): void {
+    current.codex = extension;
+  },
+  /** What the extension last wrote to the clipboard. */
+  get clipboard(): string {
+    return current.clipboard;
   },
   /** The VS Code installation folder vscode.env.appRoot reports ('' for none). */
   setAppRoot(appRoot: string): void {

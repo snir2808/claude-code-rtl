@@ -5,7 +5,7 @@ import * as path from 'path';
 import type * as vscode from 'vscode';
 import { UsageSource, activate } from '../extension';
 import { FeatureId, RTL, THEME } from '../features';
-import { REQUIRED_CHAT_CLASSES, REQUIRED_CLASS_PREFIXES, REQUIRED_JS_HOOKS } from '../health';
+import { REQUIRED_CHAT_CLASSES, REQUIRED_CLASS_PREFIXES, REQUIRED_CODEX_HOOKS, REQUIRED_JS_HOOKS } from '../health';
 import { appendBlock } from '../blocks';
 import { computeChecksum } from '../checksum';
 import { WORKBENCH_CSS, workbenchCssPath } from '../workbench';
@@ -27,10 +27,23 @@ const RELOAD = 'BiDi RTL & Theme: styles updated. Reload window to apply.';
 const RESTART =
   'BiDi RTL & Theme: styles updated. Quit and reopen VS Code to apply. A window reload also works, ' +
   'but VS Code then warns that its installation is corrupt until it restarts (harmless).';
-const MISSING = "BiDi RTL & Theme: found neither Claude Code nor VS Code's chat stylesheet, so there is nothing to change.";
+const MISSING = "BiDi RTL & Theme: found none of Claude Code, VS Code's chat stylesheet or Codex, so there is nothing to change.";
 /** A product.json laid out like VS Code's, holding the checksum of `css`. */
 const productJson = (css: string): string =>
   `{\n\t"nameShort": "Code - Insiders",\n\t"checksums": {\n\t\t"${WORKBENCH_CSS}": "${computeChecksum(css)}"\n\t}\n}\n`;
+/** Codex's main stylesheet, as its webview/index.html links it. */
+const CODEX_CSS = 'app-initial-0123456789ab.css';
+const CODEX_INDEX_HTML = `<!doctype html><html><head><link rel="stylesheet" crossorigin href="./assets/${CODEX_CSS}"></head><body></body></html>`;
+/** A Codex stylesheet that holds every hook the Codex blocks rely on, the way Codex's files spell them. */
+const HEALTHY_CODEX_CSS = REQUIRED_CODEX_HOOKS.map((hook) =>
+  hook.endsWith('_')
+    ? `${hook}abc12_1{color:red}`
+    : hook.startsWith('[')
+      ? `${hook}=x]{color:red}`
+      : hook.startsWith('--')
+        ? `:root{${hook}:0}`
+        : `${hook}{color:red}`
+).join('\n');
 const USAGE_FLAG = 'bidiUsage.enabled';
 const MINUTE = 60_000;
 /** Where the fake clock starts; RESET is the session reset the fake usage reports. */
@@ -107,6 +120,8 @@ suite('extension — activate()', () => {
   let rtlBody: string;
   let copilotThemeBody: string;
   let copilotRtlBody: string;
+  let codexThemeBody: string;
+  let codexRtlBody: string;
   let contexts: Context[];
 
   /** Activates the extension the way VS Code would, with fakes for the clock's data. */
@@ -182,6 +197,34 @@ suite('extension — activate()', () => {
     return css;
   }
 
+  /** A Codex install whose webview/index.html links its stylesheet; VS Code reports it as openai.chatgpt. */
+  async function installCodex(version: string, css = HEALTHY_CODEX_CSS, html = CODEX_INDEX_HTML): Promise<string> {
+    const dir = path.join(tmp, `openai.chatgpt-${version}-darwin-arm64`);
+    await fs.promises.mkdir(path.join(dir, 'webview', 'assets'), { recursive: true });
+    await fs.promises.writeFile(path.join(dir, 'webview', 'index.html'), html);
+    await fs.promises.writeFile(path.join(dir, 'webview', 'assets', CODEX_CSS), css);
+    fake.setCodex({ extensionPath: dir, packageJSON: { version } });
+    return dir;
+  }
+
+  const codexCssOf = (dir: string): string => fs.readFileSync(path.join(dir, 'webview', 'assets', CODEX_CSS), 'utf8');
+  const codexFontsIn = (dir: string): string[] =>
+    THEME.blocks.codex.assets
+      .map((a) => a.target)
+      .filter((target) => fs.existsSync(path.join(dir, 'webview', 'assets', target)));
+
+  /** The Codex CSS a sync of HEALTHY_CODEX_CSS writes with these modules on. */
+  function syncedCodex(ids: FeatureId[]): string {
+    let css = HEALTHY_CODEX_CSS;
+    if (ids.includes('theme')) {
+      css = appendBlock(css, THEME.blocks.codex.markers, codexThemeBody);
+    }
+    if (ids.includes('rtl')) {
+      css = appendBlock(css, RTL.blocks.codex.markers, codexRtlBody);
+    }
+    return css;
+  }
+
   function item(command: string): FakeStatusBarItem {
     const found = fake.items.find((i) => i.command === command);
     assert.ok(found, `no status item runs ${command}`);
@@ -197,6 +240,8 @@ suite('extension — activate()', () => {
     rtlBody = fs.readFileSync(path.join(ROOT, RTL.blocks.claude.cssFile), 'utf8');
     copilotThemeBody = fs.readFileSync(path.join(ROOT, THEME.blocks.workbench.cssFile), 'utf8');
     copilotRtlBody = fs.readFileSync(path.join(ROOT, RTL.blocks.workbench.cssFile), 'utf8');
+    codexThemeBody = fs.readFileSync(path.join(ROOT, THEME.blocks.codex.cssFile), 'utf8');
+    codexRtlBody = fs.readFileSync(path.join(ROOT, RTL.blocks.codex.cssFile), 'utf8');
   });
 
   setup(async () => {
@@ -502,6 +547,148 @@ suite('extension — activate()', () => {
         logged.some((line) => line.startsWith('BiDi RTL & Theme: could not update the checksum in product.json — ')),
         logged.join('\n')
       );
+    });
+  });
+
+  suite('Codex', () => {
+    const VERSION = '26.51021.22027';
+
+    test('without Claude Code or the chat, activation styles Codex and offers a window reload', async () => {
+      const dir = await installCodex(VERSION);
+      await start();
+      assert.strictEqual(codexCssOf(dir), syncedCodex(['theme', 'rtl']));
+      assert.strictEqual(codexFontsIn(dir).length, THEME.blocks.codex.assets.length);
+      assert.deepStrictEqual(texts('warning'), []);
+      const prompt = fake.messages.find((m) => m.text === RELOAD);
+      assert.ok(prompt, texts('info').join('\n'));
+      assert.deepStrictEqual(prompt.items, ['Reload Window']);
+    });
+
+    test('one toggle updates Claude Code, the chat and Codex together', async () => {
+      const claude = await installClaudeCode('2.1.287');
+      const appRoot = await installWorkbench();
+      const codex = await installCodex(VERSION);
+      await start();
+
+      await commands.executeCommand('bidi-rtl.toggle');
+      assert.strictEqual(cssOf(claude), synced(['theme']));
+      assert.strictEqual(chatCssOf(appRoot), syncedChat(['theme']));
+      assert.strictEqual(codexCssOf(codex), syncedCodex(['theme']));
+
+      await commands.executeCommand('bidi-theme.toggle');
+      assert.strictEqual(codexCssOf(codex), HEALTHY_CODEX_CSS);
+      assert.deepStrictEqual(codexFontsIn(codex), []);
+    });
+
+    test('the Codex switch turns Codex off and on, and leaves the modules and the other targets alone', async () => {
+      const claude = await installClaudeCode('2.1.287');
+      const codex = await installCodex(VERSION);
+      const context = await start();
+
+      await commands.executeCommand('bidi-codex.toggle');
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false);
+      assert.strictEqual(codexCssOf(codex), HEALTHY_CODEX_CSS);
+      assert.deepStrictEqual(codexFontsIn(codex), []);
+      assert.strictEqual(cssOf(claude), synced(['theme', 'rtl']));
+      assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
+      assert.strictEqual(item('bidi-rtl.toggle').text, '$(check) RTL');
+      const prompt = fake.messages.find((m) => m.text === 'BiDi Codex: turned off. Reload window to apply.');
+      assert.ok(prompt, texts('info').join('\n'));
+      assert.deepStrictEqual(prompt.items, ['Reload Window']);
+
+      await commands.executeCommand('bidi-rtl.toggle'); // a module toggle while Codex is off leaves Codex as it is
+      assert.strictEqual(cssOf(claude), synced(['theme']));
+      assert.strictEqual(codexCssOf(codex), HEALTHY_CODEX_CSS);
+
+      await commands.executeCommand('bidi-codex.toggle');
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), true);
+      assert.strictEqual(codexCssOf(codex), syncedCodex(['theme']));
+      assert.ok(texts('info').includes('BiDi Codex: turned on. Reload window to apply.'), texts('info').join('\n'));
+    });
+
+    test('the Codex switch without Codex says so and keeps the setting for later', async () => {
+      const context = await start();
+      await commands.executeCommand('bidi-codex.toggle');
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false);
+      assert.ok(
+        texts('info').includes('BiDi Codex: turned off. Codex is not installed in this VS Code.'),
+        texts('info').join('\n')
+      );
+      assert.deepStrictEqual(texts('warning'), []);
+    });
+
+    test('a Codex update is styled when VS Code reports the change', async () => {
+      await installCodex('26.51007.21434');
+      await start();
+      const next = await installCodex(VERSION);
+      await fake.extensionsChanged();
+      assert.strictEqual(codexCssOf(next), syncedCodex(['theme', 'rtl']));
+    });
+
+    test('a Codex that links no stylesheet is said once per Codex version, and the other targets still sync', async () => {
+      const claude = await installClaudeCode('2.1.287');
+      await installCodex(VERSION, HEALTHY_CODEX_CSS, '<html><head></head><body></body></html>');
+      const context = await start();
+      assert.strictEqual(cssOf(claude), synced(['theme', 'rtl']));
+      assert.strictEqual(texts('warning').length, 1);
+      assert.ok(texts('warning')[0].includes(`Codex ${VERSION}`), texts('warning')[0]);
+
+      await fake.extensionsChanged(); // the same version again
+      stop(context);
+      const second = await start(context.globalState); // remembers the warned version
+      assert.strictEqual(texts('warning').length, 1);
+
+      stop(second);
+      await installCodex('26.51022.10000', HEALTHY_CODEX_CSS, '<html></html>');
+      await start(context.globalState);
+      assert.strictEqual(texts('warning').length, 2);
+      assert.ok(texts('warning')[1].includes('Codex 26.51022.10000'), texts('warning')[1]);
+    });
+
+    test('the Codex health warning shows once per Codex version, and only while the theme is on', async () => {
+      const [first] = REQUIRED_CODEX_HOOKS;
+      const broken = HEALTHY_CODEX_CSS.replace(`${first}abc12_1{color:red}`, '');
+      await installCodex(VERSION, broken);
+      const context = await start();
+      assert.strictEqual(texts('warning').length, 1);
+      assert.ok(texts('warning')[0].includes(`Codex ${VERSION}`), texts('warning')[0]);
+      assert.ok(texts('warning')[0].includes(first), texts('warning')[0]);
+
+      await fake.extensionsChanged(); // another sync of the same version
+      stop(context);
+      await start(context.globalState); // remembers the warned version
+      assert.strictEqual(texts('warning').length, 1);
+
+      await commands.executeCommand('bidi-theme.toggle'); // theme off
+      await installCodex('26.51022.10000', broken);
+      await fake.extensionsChanged();
+      assert.strictEqual(texts('warning').length, 1);
+
+      await commands.executeCommand('bidi-theme.toggle'); // theme on
+      assert.strictEqual(texts('warning').length, 2);
+      assert.ok(texts('warning')[1].includes('Codex 26.51022.10000'), texts('warning')[1]);
+    });
+
+    test('the diagnostics command copies the shipped script and says how to run it', async () => {
+      await start();
+      await commands.executeCommand('bidi-codex.copyDiagnostics');
+      assert.strictEqual(fake.clipboard, fs.readFileSync(path.join(ROOT, 'diagnostics', 'codex.js'), 'utf8'));
+      const steps = texts('info').find((t) => t.startsWith('BiDi Codex: the diagnostics script is on the clipboard.'));
+      assert.ok(steps, texts('info').join('\n'));
+      assert.ok(steps.includes('Developer: Open Webview Developer Tools'), steps);
+      assert.ok(steps.includes('allow pasting'), steps);
+    });
+
+    test('a Codex CSS that cannot be written is shown, and does not hold back Claude Code', async () => {
+      const claude = await installClaudeCode('2.1.287');
+      const codex = await installCodex(VERSION);
+      await start();
+      // A folder where writeFileAtomic puts its temp file makes the Codex CSS write fail.
+      await fs.promises.mkdir(`${path.join(codex, 'webview', 'assets', CODEX_CSS)}.bidi-rtl-tmp-${process.pid}`);
+      await commands.executeCommand('bidi-theme.toggle');
+      assert.strictEqual(cssOf(claude), synced(['rtl']));
+      assert.strictEqual(texts('error').length, 1);
+      assert.ok(texts('error')[0].includes('Could not update the Codex CSS'), texts('error')[0]);
     });
   });
 
