@@ -628,21 +628,32 @@ suite('extension — activate()', () => {
     test('a Codex that links no stylesheet is said once per Codex version, and the other targets still sync', async () => {
       const claude = await installClaudeCode('2.1.287');
       await installCodex(VERSION, HEALTHY_CODEX_CSS, '<html><head></head><body></body></html>');
-      const context = await start();
-      assert.strictEqual(cssOf(claude), synced(['theme', 'rtl']));
-      assert.strictEqual(texts('warning').length, 1);
-      assert.ok(texts('warning')[0].includes(`Codex ${VERSION}`), texts('warning')[0]);
+      const logged: string[] = [];
+      const consoleError = console.error;
+      console.error = (...args: unknown[]) => void logged.push(args.join(' '));
+      try {
+        const context = await start();
+        assert.strictEqual(cssOf(claude), synced(['theme', 'rtl']));
+        assert.strictEqual(texts('warning').length, 1);
+        assert.ok(texts('warning')[0].includes(`Codex ${VERSION}`), texts('warning')[0]);
 
-      await fake.extensionsChanged(); // the same version again
-      stop(context);
-      const second = await start(context.globalState); // remembers the warned version
-      assert.strictEqual(texts('warning').length, 1);
+        await fake.extensionsChanged(); // the same version again
+        stop(context);
+        const second = await start(context.globalState); // remembers the warned version
+        assert.strictEqual(texts('warning').length, 1);
+        assert.ok(
+          logged.some((line) => line.startsWith(`BiDi RTL & Theme: Codex ${VERSION} links no stylesheet`)),
+          logged.join('\n')
+        );
 
-      stop(second);
-      await installCodex('26.51022.10000', HEALTHY_CODEX_CSS, '<html></html>');
-      await start(context.globalState);
-      assert.strictEqual(texts('warning').length, 2);
-      assert.ok(texts('warning')[1].includes('Codex 26.51022.10000'), texts('warning')[1]);
+        stop(second);
+        await installCodex('26.51022.10000', HEALTHY_CODEX_CSS, '<html></html>');
+        await start(context.globalState);
+        assert.strictEqual(texts('warning').length, 2);
+        assert.ok(texts('warning')[1].includes('Codex 26.51022.10000'), texts('warning')[1]);
+      } finally {
+        console.error = consoleError;
+      }
     });
 
     test('the Codex health warning shows once per Codex version, and only while the theme is on', async () => {
