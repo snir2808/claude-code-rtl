@@ -1,8 +1,9 @@
 // BiDi RTL & Theme: a report on how the extension's blocks apply in the Codex panel, for its
 // DevTools console. Click in the Codex panel, run "Developer: Open Webview Developer Tools", open
 // the Console, type "allow pasting" the first time, then paste this and press Enter. It reads only
-// the page's structure and computed styles: never message text, attribute values other than class
-// names, or file names. The report goes to the clipboard as JSON.
+// the page's structure and computed styles, never message text or anything from your files: the
+// report holds class and data-attribute names, the page's window type and theme kind, computed
+// styles, and the names of Codex's own stylesheets. It goes to the clipboard as JSON.
 (function bidiCodexDiagnostics() {
   'use strict';
   // What the blocks style, as css/codex-theme.css and css/codex-rtl.css match it.
