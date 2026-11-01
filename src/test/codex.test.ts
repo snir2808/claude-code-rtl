@@ -162,13 +162,23 @@ suite('codex — the Codex target', () => {
 
   test('a Codex install that cannot be cleaned is reported and does not stop the others', async () => {
     await syncCodex(codexDir, extRoot, on('theme'));
-    const broken = path.join(extensions, 'openai.chatgpt-26.5930.61225-darwin-arm64');
-    await write(path.join(broken, 'webview', 'index.html'), INDEX_HTML);
-    await fs.promises.mkdir(path.join(broken, 'webview', 'assets', CSS_NAME), { recursive: true }); // a folder: reading it fails
+    const broken1 = path.join(extensions, 'openai.chatgpt-26.5930.61225-darwin-arm64');
+    await write(path.join(broken1, 'webview', 'index.html'), INDEX_HTML);
+    await fs.promises.mkdir(path.join(broken1, 'webview', 'assets', CSS_NAME), { recursive: true }); // a folder: reading it fails
+    const broken2 = path.join(extensions, 'openai.chatgpt-26.5928.31416-darwin-arm64');
+    await write(path.join(broken2, 'webview', 'index.html'), INDEX_HTML);
+    await fs.promises.mkdir(path.join(broken2, 'webview', 'assets', CSS_NAME), { recursive: true }); // a folder: reading it fails
     const result = await cleanupCodex(extensions);
     assert.strictEqual(result.cleaned, 1);
-    assert.strictEqual(result.failures.length, 1);
-    assert.ok(result.failures[0].startsWith(`${broken}: `), result.failures[0]);
+    assert.strictEqual(result.failures.length, 2);
+    assert.ok(
+      result.failures.some((f) => f.startsWith(`${broken1}: `)),
+      `${broken1} not in failures: ${result.failures}`
+    );
+    assert.ok(
+      result.failures.some((f) => f.startsWith(`${broken2}: `)),
+      `${broken2} not in failures: ${result.failures}`
+    );
     assert.strictEqual(read(cssPath), ORIGINAL);
   });
 });
