@@ -661,18 +661,21 @@ suite('extension — activate()', () => {
       const context = await start();
       assert.strictEqual(texts('warning').length, 1); // the window start, once per Codex version
 
+      await commands.executeCommand('bidi-theme.toggle'); // a module toggle tries to style Codex too
+      assert.strictEqual(texts('warning').length, 2);
+
       await commands.executeCommand('bidi-codex.toggle'); // off: nothing of ours can be there
       assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false);
-      assert.strictEqual(texts('warning').length, 1);
+      assert.strictEqual(texts('warning').length, 2);
 
       await commands.executeCommand('bidi-codex.toggle'); // on: Codex cannot be styled, so it says why
       await commands.executeCommand('bidi-codex.toggle'); // and again
       assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false); // restored each time
-      assert.strictEqual(texts('warning').length, 3);
+      assert.strictEqual(texts('warning').length, 4);
       assert.ok(texts('warning').every((t) => t.includes(`Codex ${VERSION}`)), texts('warning').join('\n'));
 
       await commands.executeCommand('bidi-theme.toggle'); // with Codex off, a module toggle leaves it alone
-      assert.strictEqual(texts('warning').length, 3);
+      assert.strictEqual(texts('warning').length, 4);
     });
 
     test('the Codex health warning shows once per Codex version, and only while the theme is on', async () => {
