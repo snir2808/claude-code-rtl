@@ -13,6 +13,8 @@ const HASHED_CODEX_CLASS = /_[A-Za-z]+_[a-z0-9]{5}_\d+/;
 const MARKDOWN = '[class*="_MarkdownRoot_"]';
 const COMPOSER = '[class*="_RichTextInput_"]';
 const USER_MESSAGE = '.bg-user-message[class*="_bubble_"]';
+/** A loose list item's first paragraph, which runs inline beside the item's marker. */
+const LOOSE_ITEM_PARAGRAPH = '[class*="_MarkdownRoot_"] [class*="_ListItem_"]>[class*="_Paragraph_"]:first-child';
 
 // Each suite reads its file in suiteSetup, so a missing file fails its tests
 // instead of aborting the whole run while the suites are registered.
@@ -43,11 +45,11 @@ suite('codex-rtl.css', () => {
     }
   });
 
-  test('declares only direction and list-marker properties', () => {
+  test('declares only direction and list-marker properties, plus inline display for a loose list item\'s first paragraph', () => {
     const allowed = new Set(['direction', 'text-align', 'unicode-bidi', 'list-style-position']);
     for (const rule of rules) {
       for (const property of properties(rule.body)) {
-        const ok = allowed.has(property) || (property === 'content' && rule.prelude.endsWith('::marker'));
+        const ok = allowed.has(property) || (property === 'content' && rule.prelude.endsWith('::marker')) || (property === 'display' && rule.prelude === LOOSE_ITEM_PARAGRAPH);
         assert.ok(ok, `${property} in "${rule.prelude}"`);
       }
     }
@@ -77,6 +79,12 @@ suite('codex-rtl.css', () => {
   test('list markers sit inside their item and follow its language', () => {
     assert.ok(rules.some((r) => r.prelude.endsWith('[class*="_ListItem_"]') && oneLine(r.body) === 'list-style-position:inside;'));
     assert.ok(rules.some((r) => r.prelude.endsWith('[class*="_ListItem_"]::marker') && oneLine(r.body) === 'unicode-bidi:normal;'));
+  });
+
+  test("a loose list item's first paragraph runs inline, so its marker sits beside it", () => {
+    const rule = rules.find((r) => r.prelude === LOOSE_ITEM_PARAGRAPH);
+    assert.ok(rule, 'no rule for a loose list item\'s first paragraph');
+    assert.strictEqual(oneLine(rule.body), 'display:inline;unicode-bidi:normal;');
   });
 
   test('your message is right-to-left, so its accent bar sits on the right', () => {
