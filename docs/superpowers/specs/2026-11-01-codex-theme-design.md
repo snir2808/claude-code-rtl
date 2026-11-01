@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-01  
 **Project:** `vscode-bidi-rtl` (this repo), version 0.3.0  
-**Status:** Design approved in brainstorming; written spec under review; implementation plan to follow  
+**Status:** Approved; implementation plan: [2026-11-01-codex-theme.md](../plans/2026-11-01-codex-theme.md). Decisions marked *(changed while planning)* come from a closer reading of Codex's code and a prototype rendered against its real CSS  
 **Builds on:** 0.2.0 (Claude Code and Copilot chat) — see [`2026-10-22-copilot-chat-theme-design.md`](2026-10-22-copilot-chat-theme-design.md) and [`2026-10-09-claude-code-warm-theme-design.md`](2026-10-09-claude-code-warm-theme-design.md). Visual values are the Claude Code theme's; this spec maps them onto the Codex panel.
 
 ---
@@ -43,24 +43,28 @@ Checked on 2026-11-01 against the darwin-arm64 VSIX from the Marketplace (403 MB
 - **CSP.** `style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}` with `localResourceRoots: [<ext>/webview]`. Fonts copied into `webview/assets/` load; nothing outside `webview/` can.
 - **Size.** 17,596 JS files (567 MB): the webview bundles much of the ChatGPT app. Nothing in this design reads the JS at runtime.
 - **Theme detection.** VS Code marks the webview's body (`class="vscode-dark"`, `data-vscode-theme-kind`), and Codex reads `data-vscode-theme-kind` to choose light or dark.
-- **Tokens.** Codex maps its design tokens to VS Code's colors under `:root[data-codex-window-type=extension]`, and again on `[data-theme]` elements:
+- **Tokens.** VS Code writes the theme's colors inline on the webview's `<html>` (`style="--vscode-foreground: …"`). Codex maps its design tokens to them under `:root[data-codex-window-type=extension]`, and again on `[data-theme]` elements, all inside `@layer theme`:
   - text: `--color-text`, `--color-text-secondary`, `--color-text-tertiary`, `--color-text-prose`;
   - surfaces: `--color-surface`, `--color-surface-secondary`, `--color-surface-tertiary`, `--color-surface-elevated`;
   - backgrounds: `--color-background-primary-soft`, `-ghost-hover` and `-soft-active`;
   - borders and focus: `--color-border`, `--color-border-subtle`, `--color-border-strong`, `--color-ring`;
   - about 290 `--color-token-*` values for inputs, buttons, menus, lists, editors and terminals.
 
-  Some tokens name parts of the conversation directly: `--color-background-user-message`, `--color-text-user-message`, `--color-background-execution-output`, `--color-text-execution-output`, `--color-background-composer-primary` and `--color-text-composer-primary`.
+  Some tokens name parts of the conversation directly: `--color-background-user-message`, `--color-text-user-message`, `--color-background-composer-primary` and `--color-text-composer-primary` (the send button). Borders and secondary text are mixes of the foreground (8% and 65%), unless the `--app-color-border` and `--app-color-text-secondary` hooks are set. `--color-background-execution-output` belongs to ChatGPT's Python analysis, not to Codex's commands; Codex draws command output with xterm in VS Code's terminal colors *(changed while planning)*.
 - **Fonts and sizes.** `--font-sans` resolves to `--font-ui-family`, which is VS Code's UI font in the extension. `--font-mono` resolves to `--font-code-family`, the editor font. The chat size is `--codex-chat-font-size: var(--codex-chat-font-size-override, var(--font-ui-size, 13px))`.
 - **Markup.** Mostly Tailwind utilities, plus CSS modules named `_<Name>_<hash>_<n>`. Like Claude Code's hashed names, these are matched with `[class*="_Name_"]`:
   - markdown: `_MarkdownRoot_`, `_Paragraph_`, `_Heading_`, `_List_`, `_OrderedList_`, `_UnorderedList_`, `_ListItem_`, `_Blockquote_`, `_TableCell_`, `_TableHeaderCell_`, `_CodeBlock_`, `_InlineCode_`;
   - the composer: `_ComposerLayoutRoot_` and `_RichTextInput_` around a ProseMirror editor (`.ProseMirror`, one `<p>` per line);
-  - the user message: a bubble with `.bg-user-message` and `data-user-message-bubble`, aligned to the end, at most `--user-chat-width` wide.
-- **Direction.** Codex has RTL rules for right-to-left UI locales (`:lang(he)` and others), but ships no Hebrew locale. Nothing sets `dir="auto"` or `unicode-bidi:plaintext` on message text.
+  - the user message: a bubble with `.bg-user-message`, the `_bubble_` module and `data-user-message-bubble`, aligned to the end, at most `--user-chat-width` wide. Its text is markdown too, with `data-markdown-text-tone="user-message"` and `white-space: pre-wrap`;
+  - the composer's surface: `border: 0 !important` inside a layer (which no unlayered rule can override), a background from `--composer-layout-surface-background` and a shadow from `--composer-layout-surface-shadow`.
+- **Direction** *(changed while planning)*. Codex has RTL rules for right-to-left UI locales (`:lang(he)` and others), but ships no Hebrew locale. Its markdown already handles most of the direction: the root and every paragraph, heading, list, quote and table cell get `dir="auto"`, inline code and code blocks get `dir="ltr"`, and assistant text isolates a trailing run in the other direction in a `<bdi>`. Three gaps remain:
+  - a list item follows its list's first item, not its own text;
+  - each line of a user message follows the whole paragraph (`dir="auto"` looks at the first line only);
+  - the composer has no direction handling: a Hebrew line types left-to-right.
 - **No asset cache.** The webview's service worker (`webview/service-worker/events.js`) handles push notifications only, so patched files are never served from a cache.
 - **Updates.** About weekly, sometimes several times a week: 14 releases between 2026-09-03 and 2026-10-23. Each version installs into its own folder, `openai.chatgpt-<version>-<platform>`.
 
-Which element carries which class in a live conversation is not known here. The fixture reproduces the nesting from Codex's component code, and the work Mac confirms it.
+Which element carries which class in a live conversation is not known here. The fixture reproduces the nesting from Codex's component code, and the work Mac confirms it. A prototype of both blocks, rendered in headless Chrome against Codex's real CSS, gave every value of the visual spec below *(changed while planning)*.
 
 ---
 
@@ -82,7 +86,7 @@ Which element carries which class in a live conversation is not known here. The 
 - **Missing Codex:** skipped silently, like the other targets. The "nothing to change" warning, shown when a toggle finds no target at all, names all three.
 - **Layout changes:** when `index.html` has no usable stylesheet link, Codex is skipped and a warning shows once per Codex version: Codex `<version>` changed its layout, so it cannot be styled.
 - **Write errors:** reported as for Claude Code.
-- **Health check:** while the theme is on, the check runs once per Codex version. It verifies that every hook the Codex blocks rely on still appears in Codex's CSS files (`webview/assets/*.css`, about 3 MB). The hooks are the tokens and class names listed under the CSS rules below. A missing hook gives one warning per Codex version, kept under its own globalState key. The theme stays applied.
+- **Health check:** while the theme is on, the check runs once per Codex version. It verifies that every hook the Codex blocks rely on still appears in Codex's CSS files (`webview/assets/*.css`, about 3 MB). The hooks are the tokens and class names listed under the CSS rules below; each must appear in CSS, so the user message is matched as `.bg-user-message[class*="_bubble_"]` (its `data-user-message-bubble` attribute appears only in JS) *(changed while planning)*. A missing hook gives one warning per Codex version, kept under its own globalState key. The theme stays applied.
 - **Uninstall:** the hook also cleans every `openai.chatgpt-*` folder in the extensions root (blocks stripped, fonts deleted), as it does for `anthropic.claude-code-*`. A folder that fails does not stop the others.
 - **Status bar:** the Theme and RTL tooltips name everything they control: Claude Code, Copilot and Codex.
 - **Diagnostics:** `BiDi Codex: Copy Diagnostics Script` (`bidi-codex.copyDiagnostics`) copies the script below to the clipboard and shows the steps to run it.
@@ -96,11 +100,12 @@ The script is a plain JS file shipped in the VSIX as `diagnostics/codex.js` (`sc
 - reads only structure and computed styles, never text, attribute values (other than class names) or file names;
 - reports:
   - the theme kind;
-  - whether each block is active. Theme is active when the chat font size is 15px and the body font starts with "BiDi Rubik"; RTL is active when a markdown paragraph has `unicode-bidi: plaintext`;
+  - whether each block is active. Theme is active when the chat font size override is 15px; RTL is active when a markdown paragraph has `unicode-bidi: plaintext`;
   - BiDi Rubik's status in `document.fonts`;
   - how many elements each hook matches;
-  - for up to 10 paragraphs, list items and user-message lines: the direction of the first strong character (computed in place, never exported), and the computed direction, text-align and first font;
-  - the class lists of the markdown root, the user message, the composer and the command output, and of their ancestors up to 4 levels;
+  - for up to 10 each of the paragraphs (yours and Codex's), headings, list items and composer lines: the direction of the first strong character (computed in place, never exported), and the computed direction, unicode-bidi, text-align, first font and size;
+  - which side of its box each sample's text sits on;
+  - the class lists of the markdown root, the user message, the composer, its editor and the first code block, and of their ancestors up to 4 levels;
   - the names of the loaded stylesheets;
 - copies the report as JSON with DevTools' `copy()` and prints a short summary.
 
@@ -112,68 +117,72 @@ The values are the Claude Code theme's (spec of 2026-10-09, as amended), as in t
 
 ### Theme (`css/codex-theme.css`)
 
-Every selector starts with `body.vscode-dark`. Light and high-contrast themes are untouched.
+Every selector starts with `body.vscode-dark` or, for the palette on `<html>`, with `:root:has(>body.vscode-dark)` *(changed while planning)*. Light and high-contrast themes are untouched.
 
-**Palette.** The tokens are redefined on `body.vscode-dark` and on `body.vscode-dark [data-theme]`, because Codex declares them again on `[data-theme]` elements. Some tokens are derived from others on `:root`, for example `--color-surface: var(--color-surface-tertiary)`. Those are set directly, because a value derived on `:root` does not see a redefinition on `body`. The body also paints the panel background itself.
+**Palette** *(changed while planning)*. The warm values go where the colors come from:
+- **VS Code's colors,** `--vscode-*`, are redefined on `:root:has(>body.vscode-dark)`, with `!important` because VS Code writes them inline on `<html>`. Every Codex token derived from them, on `:root` and on `[data-theme]` elements, then follows, including the ones derived from other tokens.
+- **Codex's own tokens** that do not come from VS Code's colors are redefined on `:root:has(>body.vscode-dark)` and on its `[data-theme]` descendants. Codex declares them in `@layer theme`, which an unlayered rule outranks, so they need no `!important`.
+- **The body** paints the panel background itself, since the webview's body is transparent over VS Code's side bar.
 
-| Role | Main Codex tokens (the plan lists them all) | Value |
+| Role | Where it is set | Value |
 |---|---|---|
-| Panel background | `body` background, `--color-surface*`, the side bar, editor and panel background tokens | `#1b1a18` |
-| Text, prose | `--color-text`, `--color-text-prose`, `--color-token-foreground` | `#ebe5da` |
-| Secondary text | `--color-text-secondary`, `--color-text-tertiary`, the description token | `#a39d92` |
-| Disabled text | `--color-text-disabled` | `#7d766a` |
-| Borders | `--color-border`, `--color-border-subtle`, `--color-token-border*`, the widget border | `#3b362f` |
-| Hover / selected | `--color-background-primary-ghost-hover` and list hover / `--color-background-primary-soft-active` and list selection | `#2a2622` / `#3a332b` |
-| Inputs, menus, dropdowns | `--color-background-primary-soft`, `--color-surface-elevated`, the input, menu and dropdown tokens | `#242120` |
-| Input border / focus | `--color-token-input-border` / `--color-ring` and the focus border | `#736a5d` / `#d97757` |
-| Accent / links | buttons and badges / `--color-text-info` and the link tokens | `#d97757` / `#e8a07f` |
-| Inline code | the preformat tokens, `--color-codex-editor-inline-code-*` | `#2b2824` / `#f2b896` |
-| Code blocks | the code block background | `#121110` |
+| Panel background | `body` background; `--vscode-sideBar-background`, `--vscode-editor-background`, `--vscode-panel-background` | `#1b1a18` |
+| Text | `--vscode-foreground` | `#ebe5da` |
+| Secondary text | `--app-color-text-secondary`, `--vscode-descriptionForeground` | `#a39d92` |
+| Disabled text | `--vscode-disabledForeground` | `#7d766a` |
+| Borders | `--app-color-border`, `--vscode-widget-border`, the menu and dropdown borders | `#3b362f` |
+| Hover / selected | `--vscode-list-hoverBackground`, `--vscode-toolbar-hoverBackground` / the list and menu selection | `#2a2622` / `#3a332b` |
+| Inputs, menus, dropdowns, the composer | `--vscode-input-background`, `--vscode-menu-background`, `--vscode-dropdown-background`, `--vscode-editorWidget-background` | `#242120` |
+| Input border / focus | `--vscode-input-border` / `--vscode-focusBorder` | `#736a5d` / `#d97757` |
+| Accent / links | `--vscode-button-background`, `--vscode-badge-background` / `--vscode-textLink-foreground` | `#d97757` / `#e8a07f` |
+| Inline code | `--vscode-textPreformat-*`, and `[class*="_InlineCode_"]` directly | `#2b2824` / `#f2b896` |
+| Code blocks | `--vscode-textCodeBlock-background` | `#121110` |
 | Your messages | `--color-background-user-message` / `--color-text-user-message` | `#262320` / `#f5f0e8` |
-| Command output | `--color-background-execution-output` / `--color-text-execution-output` | `#121110` / `#cfc6b7` |
-| Send button | `--color-background-composer-primary` / `--color-text-composer-primary`, if the fixture confirms they paint it | `#c6613f` / `#f5f0e8` |
+| Command output | `--vscode-terminal-background` / `--vscode-terminal-foreground` | `#121110` / `#cfc6b7` |
+| Send button | `--color-background-composer-primary` / `--color-text-composer-primary` (confirmed: the button's `bg-composer-primary` and `text-composer-primary`) | `#c6613f` / `#faf9f5` |
 
 **Typography.**
 
 - `--font-ui-family: "BiDi Rubik", -apple-system, BlinkMacSystemFont, system-ui, sans-serif`, so the whole panel uses Rubik, with the same `@font-face` faces (Hebrew and Latin subsets) as the Claude theme.
 - `--codex-chat-font-size-override: 15px`.
 - Code keeps the editor font.
-- Markdown line height 1.75; headings 20/18/16px, weight 600, `#f5f0e8`; list markers `#d97757`.
+- Markdown line height 1.75, through Codex's `--markdown-line-height`; headings 20/18/16px, weight 600, `#f5f0e8`; list markers `#d97757`.
 
 **Components.**
 
-- **Your messages:** a full-width block rather than an end-aligned bubble, as in Claude Code and Copilot: background `#262320`, radius 14px, padding 12px 16px, text `#f5f0e8`, `border-inline-start: 3px solid #d97757`.
-- **Responses:** the markdown described above; paragraph spacing 12px; code blocks with a 12px radius on `#121110`.
-- **Activity** (reasoning, commands, file changes): takes the palette through the tokens. A quiet box (surface `#211f1c`, 1px `#2b2824` border, radius 12px) is added only where the plan finds a stable hook (a CSS module or a data attribute). Otherwise it waits for the work check.
-- **Composer:** fill `#242120`, border `#736a5d`, focus `#d97757`, radius 18px, input text 18px (1.2× like Claude Code's). Codex keeps the size of its buttons and pickers, whose layout is Tailwind utilities.
+- **Your messages:** a full-width block rather than an end-aligned bubble, as in Claude Code and Copilot: background `#262320`, radius 14px, padding 12px 16px, text `#f5f0e8`, `border-inline-start: 3px solid #d97757`. With RTL on, the block is right-to-left, so the bar sits on the right, as in Claude Code and Copilot *(changed while planning)*.
+- **Responses:** the markdown described above. Paragraph spacing and code blocks keep Codex's own layout, on the warm tokens *(changed while planning)*.
+- **Activity** (reasoning, commands, file changes): takes the palette through the tokens. No quiet boxes in this version: no stable hook was found for them. To revisit with the work check's report *(changed while planning)*.
+- **Composer:** fill `#242120` (through the tokens), radius 18px through `--composer-border-radius`, and a 1px ring `#736a5d`, `#d97757` while focused, through `--composer-layout-surface-shadow`, since Codex forces `border: 0 !important` there. The input text is 18px with a 1.5 line height (1.2× like Claude Code's). Codex keeps the size of its buttons and pickers, whose layout is Tailwind utilities *(changed while planning)*.
 - **Width:** Codex's own.
 
 ### RTL (`css/codex-rtl.css`)
 
 The RTL block applies in every theme.
 
-- **Markdown:** `[class*="_MarkdownRoot_"]` gets `direction: rtl; text-align: start; unicode-bidi: isolate`. Its `p`, `h1`–`h6`, `li`, `blockquote`, `th` and `td` elements get `unicode-bidi: plaintext; text-align: start`, so Hebrew paragraphs sit on the right and English ones on the left.
+The block fills the three gaps in Codex's own direction handling and keeps its `dir` attributes *(changed while planning)*:
+- **Markdown:** paragraphs, headings, list items and quotes inside `[class*="_MarkdownRoot_"]` get `unicode-bidi: plaintext; text-align: start`. Each line then follows its own text: a list item its own language, a line of a user message its own language. The markdown root keeps Codex's `dir="auto"`, so an English table is not mirrored.
 - **Lists:** markers inside the item, with `::marker { unicode-bidi: normal }`, and the bullet as `"\2022  "`, as in the Copilot block.
-- **Your messages:** every line or paragraph follows its own text (`plaintext`, `start`).
-- **Composer:** each ProseMirror paragraph (`.ProseMirror p` inside the composer) follows its own text. A Hebrew line types right-to-left and aligns right; the placeholder follows its own text.
-- **Kept left-to-right:** code blocks and inline code (`pre`, `code`, `_CodeBlock_`, `_InlineCode_`), command output, diffs, file chips, buttons and toolbars.
+- **Your messages:** the bubble is right-to-left (its accent bar on the right); its text follows the markdown rule above.
+- **Composer:** each ProseMirror line (`p`, `li`, headings, quotes inside `[class*="_RichTextInput_"] .ProseMirror`) follows its own text. A Hebrew line types right-to-left and aligns right.
+- **Kept left-to-right:** nothing to add: Codex marks inline code, code blocks and command output `dir="ltr"`, which isolates them from the paragraph around them.
 
 ### Rules for the Codex CSS files
 
 Unit tests enforce these rules, as for the other targets.
 
 - **`css/codex-theme.css`:**
-  - every style rule's selectors start with `body.vscode-dark`;
+  - every style rule's selectors start with `body.vscode-dark` or `:root:has(>body.vscode-dark)`;
   - the only top-level at-rule is `@font-face`;
   - no `direction`, `text-align` or `unicode-bidi`.
-- **`css/codex-rtl.css`:** only `direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`.
+- **`css/codex-rtl.css`:** only `direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`; every selector starts with `[class*="_MarkdownRoot_"]`, `[class*="_RichTextInput_"]` or the user message (`.bg-user-message[class*="_bubble_"]`).
 - **Hooks, in both files:** selectors may use only:
   - CSS-module prefixes (`[class*="_Name_"]`, never a full hashed name);
-  - semantic classes and attributes from a fixed list, kept with the health check's hooks (as of this spec: the classes `ProseMirror`, `bg-user-message` and `bg-execution-output`, and the attributes `data-theme` and `data-user-message-bubble`);
+  - semantic classes and attributes from a fixed list, kept with the health check's hooks (the classes `ProseMirror` and `bg-user-message`, and the attributes `data-theme` and `data-composer-surface-variant`) *(changed while planning)*;
   - plain elements.
 
-  Tailwind layout utilities such as `px-2` or `rounded-2xl` are not allowed. The health check's hook list must be exactly the hooks the two files use; a coverage test checks both directions.
-- **`!important`:** only against a layered `!important` utility or an inline style, with a comment naming it.
+  Tailwind layout utilities such as `px-2` or `rounded-2xl` are not allowed. Codex's own custom properties that the files set or read count as hooks too (`--vscode-*` ones do not: they are VS Code's). The health check's hook list must be exactly the hooks the two files use; a coverage test checks both directions.
+- **`!important`:** only on the `--vscode-*` colors of the palette rule, which VS Code writes inline on `<html>` *(changed while planning)*.
 
 ---
 
@@ -206,20 +215,23 @@ Unit tests enforce these rules, as for the other targets.
 
 - **The page:**
   - `<html data-codex-window-type="extension">` and `<body class="vscode-dark" data-vscode-theme-kind="vscode-dark">`, with VS Code's Dark Modern `--vscode-*` values;
-  - Codex's real `app-initial` stylesheet, plus the CSS modules the conversation loads (markdown, composer layout, ProseMirror, prompt editor, user message bubble, thread layout), found in `assets/` by name prefix;
+  - Codex's real `app-initial` stylesheet, plus the CSS modules the conversation loads (markdown, user message bubble, user text, composer layout, prompt editor, ProseMirror, composer content), found in `assets/` by name prefix;
   - the synced blocks.
 - **The DOM,** reproduced from Codex's component code with its real class strings:
-  - a Hebrew user message and an English one;
-  - a response with Hebrew and English paragraphs, headings, a Hebrew list and an English list, inline code and a code block;
-  - command output;
-  - the composer with a Hebrew line and an English line.
+  - a user message with a Hebrew line and an English line;
+  - a response with a Hebrew heading, Hebrew and English paragraphs, a list with an English item and a Hebrew item, inline code and a code block;
+  - secondary text and a bordered box;
+  - the composer with a Hebrew line and an English line, and its send button.
+
+  Command output is drawn by xterm in Codex, so the fixture cannot show it *(changed while planning)*.
 - **Checks:**
-  - palette values;
+  - palette values, borders and secondary text;
   - Rubik at 15px in messages, 18px in the composer;
-  - the user block at full width with its accent bar;
-  - direction and alignment per paragraph;
+  - the user block at full width with its accent bar on the right;
+  - the composer's ring, and its focus color;
+  - alignment per paragraph and per line;
   - list markers on the side of their item;
-  - code and output left-to-right;
+  - code left-to-right;
   - under `vscode-light`, none of the theme applies but RTL does;
   - the diagnostics script's report has the expected shape and contains none of the fixture's text.
 - **Screenshots** in dark and light, shown to the user before the work check.
