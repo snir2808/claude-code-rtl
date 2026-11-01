@@ -78,15 +78,16 @@ editor tabs):
   own direction, and the extension adds each list item, each line of your messages and each line
   you type in the composer. Code and commands stay left-to-right.
 
-The **Theme** and **RTL** buttons control Codex too. To leave Codex as it is while Claude Code
-and the Copilot chat stay styled, run `BiDi Codex: Toggle Codex Styling On/Off`.
+The **Theme** and **RTL** buttons control Codex too, while its own switch is on. To leave Codex as
+it is while Claude Code and the Copilot chat stay styled, turn that switch off with
+`BiDi Codex: Toggle Codex Styling On/Off`.
 
 Codex reads its stylesheet each time it opens its panel, so a change to Codex applies after
 **Reload Window**: no restart, no checksum.
 
 ### Checking the Codex panel
 
-After installing or updating, a quick check:
+After installing or updating, a quick check, in a dark theme with RTL on:
 
 1. Send Codex this prompt:
 
@@ -107,8 +108,8 @@ After installing or updating, a quick check:
       18px;
    7. the composer has a thin ring that turns orange while you type, and an orange send button;
    8. after `BiDi Codex: Toggle Codex Styling On/Off` and a window reload, Codex looks as it did
-      without the extension, and the Copilot chat keeps its theme. Run the command again to bring
-      the style back.
+      without the extension, and the Copilot chat keeps its theme. Run the command again, and
+      reload, to bring the style back.
 3. Run `BiDi Codex: Copy Diagnostics Script` and follow the steps it shows. The script copies a
    report on how the styles apply, without any message text. Paste the report into an issue,
    with a screenshot of anything that looks wrong.
@@ -156,7 +157,7 @@ This extension is distributed as a `.vsix` file (it's not on the Marketplace).
    ```bash
    code --install-extension vscode-bidi-rtl-0.3.0.vsix
    ```
-3. Reload the window. RTL and the theme are applied automatically on startup, to Claude Code, the Copilot chat and Codex (for the chat, quit and reopen VS Code once more when the extension asks). The session clock asks first.
+3. Reload the window. RTL and the theme are applied automatically on startup, to Claude Code, the Copilot chat and Codex (for the Copilot chat, quit and reopen VS Code once more when the extension asks). The session clock asks first.
 
 ## Commands
 
@@ -196,14 +197,14 @@ each time it opens its panel, so a change applies with a window reload, and ther
 - While the theme is on, the extension also checks that the chat's class names it styles are
   still in VS Code, and warns once per VS Code version if some are gone.
 - Each Codex update installs a new folder. The extension styles it as soon as VS Code reports the
-  update, and asks for a window reload. While the theme is on, it checks that the parts of Codex
-  it styles are still in Codex's stylesheets, and warns once per Codex version if some are gone.
-  If Codex stops linking a stylesheet the extension can find, the extension says so once per
-  Codex version and leaves Codex as it is.
+  update; if Codex's panel opened before that, reload the window to see the styles. While the
+  theme is on, it checks that the parts of Codex it styles are still in Codex's stylesheets, and
+  warns once per Codex version if some are gone. If Codex stops linking a stylesheet the extension
+  can find, the extension says so once per Codex version and leaves Codex as it is.
 - When VS Code is installed where your user cannot write (for example an `/Applications` copy
   owned by an administrator), the chat cannot be styled. The extension says so once per VS Code
-  version when a window opens (and every time you toggle a module), and Claude Code is still
-  styled.
+  version when a window opens (and every time you toggle a module), and Claude Code and Codex are
+  still styled.
 - Uninstalling the extension removes the blocks and fonts by itself, from every Claude Code
   install, from every Codex install and from the VS Code it was uninstalled in (restoring its
   checksum). The cleanup runs the next time VS Code fully restarts after the uninstall, because
@@ -213,8 +214,9 @@ each time it opens its panel, so a change applies with a window reload, and ther
   to turn the modules off.
 - Going back to 0.0.3 leaves the theme block and its fonts behind, since 0.0.3 knows only the RTL
   block. Turn the theme off first (or uninstall 0.1.0 and restart VS Code), then install 0.0.3.
-- Going back to 0.1.0 leaves the Copilot chat styled until the next VS Code update, since 0.1.0
-  knows only Claude Code. Turn both modules off first, then install 0.1.0.
+- Going back to 0.1.0 leaves the Copilot chat styled until the next VS Code update, and Codex
+  until its next update, since 0.1.0 knows only Claude Code. Turn both modules off first, then
+  install 0.1.0.
 - Going back to 0.2.0 leaves Codex styled until its next update, since 0.2.0 knows only Claude
   Code and the Copilot chat. Turn Codex off first (`BiDi Codex: Toggle Codex Styling On/Off`),
   then install 0.2.0.
