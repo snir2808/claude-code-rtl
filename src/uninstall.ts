@@ -1,10 +1,7 @@
 import * as path from 'path';
-import { cleanupAll } from './cleanup';
+import { cleanupAll, errorMessage } from './cleanup';
+import { cleanupCodex } from './codex';
 import { cleanWorkbench, findAppRoot } from './workbench';
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 async function cleanClaudeCode(extensionsRoot: string): Promise<number> {
   try {
@@ -18,6 +15,23 @@ async function cleanClaudeCode(extensionsRoot: string): Promise<number> {
   } catch (err: unknown) {
     console.log(`BiDi RTL & Theme: cleanup failed — ${errorMessage(err)}`);
     return 0;
+  }
+}
+
+// Every Codex install in the extensions folder. Logged only when there was
+// something to clean, so a machine without Codex logs what it always did.
+async function cleanCodex(extensionsRoot: string): Promise<void> {
+  try {
+    const { cleaned, failures } = await cleanupCodex(extensionsRoot);
+    if (cleaned > 0 || failures.length > 0) {
+      const notCleaned = failures.length > 0 ? `; ${failures.length} could not be cleaned` : '';
+      console.log(`BiDi RTL & Theme: cleaned ${cleaned} Codex install(s)${notCleaned}.`);
+    }
+    for (const failure of failures) {
+      console.log(`BiDi RTL & Theme: could not clean ${failure}`);
+    }
+  } catch (err: unknown) {
+    console.log(`BiDi RTL & Theme: Codex cleanup failed — ${errorMessage(err)}`);
   }
 }
 
@@ -37,6 +51,7 @@ async function cleanChat(execPath: string): Promise<void> {
 /** Returns how many Claude Code installs were cleaned. */
 export async function main(extensionsRoot: string, execPath: string): Promise<number> {
   const cleaned = await cleanClaudeCode(extensionsRoot);
+  await cleanCodex(extensionsRoot);
   await cleanChat(execPath);
   return cleaned;
 }

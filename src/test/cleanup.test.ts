@@ -149,6 +149,37 @@ suite('cleanup — uninstall', () => {
       assert.ok(logged[1].includes('anthropic.claude-code-2.1.250'), logged[1]);
     });
 
+    const CODEX_DIR = 'openai.chatgpt-26.51021.22027-darwin-arm64';
+    const CODEX_INDEX = '<link rel="stylesheet" href="./assets/app-initial-0123456789ab.css">';
+
+    test('also cleans every Codex install in the extensions folder', async () => {
+      const css = path.join(root, CODEX_DIR, 'webview', 'assets', 'app-initial-0123456789ab.css');
+      const font = path.join(path.dirname(css), THEME.blocks.codex.assets[0].target);
+      await write(path.join(root, CODEX_DIR, 'webview', 'index.html'), CODEX_INDEX);
+      await write(css, appendBlock(appendBlock(ORIGINAL_A, THEME.blocks.codex.markers, '.t{}'), RTL.blocks.codex.markers, '.r{}'));
+      await write(font, 'font');
+
+      assert.strictEqual(await main(root, NO_VSCODE()), 2);
+      assert.strictEqual(await fs.promises.readFile(css, 'utf8'), ORIGINAL_A);
+      assert.ok(!fs.existsSync(font), font);
+      assert.deepStrictEqual(logged, [
+        'BiDi RTL & Theme: cleaned 2 Claude Code install(s).',
+        'BiDi RTL & Theme: cleaned 1 Codex install(s).',
+      ]);
+    });
+
+    test('logs a Codex install it could not clean', async () => {
+      const dir = path.join(root, CODEX_DIR);
+      await write(path.join(dir, 'webview', 'index.html'), CODEX_INDEX);
+      // A folder where the stylesheet goes: reading it fails.
+      await fs.promises.mkdir(path.join(dir, 'webview', 'assets', 'app-initial-0123456789ab.css'), { recursive: true });
+
+      assert.strictEqual(await main(root, NO_VSCODE()), 2);
+      assert.strictEqual(logged.length, 3, logged.join('\n'));
+      assert.strictEqual(logged[1], 'BiDi RTL & Theme: cleaned 0 Codex install(s); 1 could not be cleaned.');
+      assert.ok(logged[2].startsWith(`BiDi RTL & Theme: could not clean ${dir}: `), logged[2]);
+    });
+
     test('also cleans the chat of the VS Code it runs under and restores its checksum', async () => {
       const contents = path.join(root, 'Code.app', 'Contents');
       const appRoot = path.join(contents, 'Resources', 'app');
