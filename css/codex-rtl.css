@@ -1,0 +1,39 @@
+/* RTL for OpenAI's Codex panel, in every theme. Codex already gives each
+   markdown paragraph, heading, list, quote and table cell dir="auto", and
+   inline code, code blocks and command output dir="ltr". This block fills
+   the gaps: each line of a paragraph, list item or quote follows its own
+   text (a list item no longer follows its list's first item, nor a line of
+   your message the message's first line), and so does each line of the
+   composer, which has no direction handling at all. Codex's dir attributes
+   stay, so an English table is not mirrored. Rules (enforced by
+   src/test/codex-css.test.ts): only direction, text-align, unicode-bidi and
+   list-marker placement, and every selector starts with the markdown root,
+   the composer's editor or your message. */
+
+/* Markdown, in your messages and in Codex's answers: text-align:start lets
+   each line's unicode-bidi:plaintext put Hebrew on the right and English on
+   the left. */
+[class*="_MarkdownRoot_"] :is([class*="_Paragraph_"],[class*="_Heading_"],[class*="_ListItem_"],[class*="_Blockquote_"]){
+unicode-bidi:plaintext;
+text-align:start;
+}
+/* Inside markers + unicode-bidi:normal make each marker follow its item's language. */
+[class*="_MarkdownRoot_"] [class*="_ListItem_"]{
+list-style-position:inside;
+}
+[class*="_MarkdownRoot_"] [class*="_ListItem_"]::marker{
+unicode-bidi:normal;
+}
+[class*="_MarkdownRoot_"] [class*="_UnorderedList_"]>[class*="_ListItem_"]::marker{
+content:"\2022  ";
+}
+/* Your message: a right-to-left block, so its accent bar (css/codex-theme.css)
+   sits on the right, as in Claude Code. Its lines follow the markdown rule. */
+.bg-user-message[class*="_bubble_"]{
+direction:rtl;
+}
+/* The composer (ProseMirror): each line you type follows its own text. */
+[class*="_RichTextInput_"] .ProseMirror :is(p,li,h1,h2,h3,h4,h5,h6,blockquote){
+unicode-bidi:plaintext;
+text-align:start;
+}
