@@ -91,6 +91,6 @@ export async function cleanupAll(extensionsRoot: string): Promise<CleanupResult>
   return result;
 }
 
-function errorMessage(err: unknown): string {
+export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }

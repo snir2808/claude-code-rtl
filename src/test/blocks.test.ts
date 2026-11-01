@@ -46,7 +46,7 @@ suite('features — registry', () => {
   });
 
   test('every module has a block for each target', () => {
-    assert.deepStrictEqual(TARGETS, ['claude', 'workbench']);
+    assert.deepStrictEqual(TARGETS, ['claude', 'workbench', 'codex']);
     for (const feature of FEATURES) {
       assert.deepStrictEqual(Object.keys(feature.blocks).sort(), [...TARGETS].sort(), feature.id);
     }
@@ -72,9 +72,24 @@ suite('features — registry', () => {
     assert.strictEqual(RTL.blocks.workbench.cssFile, 'css/copilot-rtl.css');
   });
 
-  test('theme assets are woff2 files prefixed bidi-theme-, the same in both targets', () => {
+  test('the Codex blocks have their own markers and CSS files', () => {
+    assert.deepStrictEqual(THEME.blocks.codex.markers, {
+      start: '/* bidi-codex-theme-start */',
+      end: '/* bidi-codex-theme-end */',
+    });
+    assert.deepStrictEqual(RTL.blocks.codex.markers, {
+      start: '/* bidi-codex-rtl-start */',
+      end: '/* bidi-codex-rtl-end */',
+    });
+    assert.strictEqual(THEME.blocks.codex.cssFile, 'css/codex-theme.css');
+    assert.strictEqual(RTL.blocks.codex.cssFile, 'css/codex-rtl.css');
+  });
+
+  test('theme assets are woff2 files prefixed bidi-theme-, the same in every target', () => {
     assert.ok(THEME.blocks.claude.assets.length > 0);
-    assert.deepStrictEqual(THEME.blocks.workbench.assets, THEME.blocks.claude.assets);
+    for (const target of TARGETS) {
+      assert.deepStrictEqual(THEME.blocks[target].assets, THEME.blocks.claude.assets, target);
+    }
     for (const asset of THEME.blocks.claude.assets) {
       assert.match(asset.target, /^bidi-theme-[a-z-]+\.woff2$/);
     }

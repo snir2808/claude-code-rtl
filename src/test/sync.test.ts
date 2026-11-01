@@ -73,4 +73,14 @@ suite('sync — computeSyncedCss', () => {
     );
     assert.strictEqual(computeSyncedCss(both, on([]), BODIES, 'workbench'), withClaude);
   });
+
+  test("the codex target uses its own markers and leaves the other targets' blocks alone", () => {
+    const withOthers = appendBlock(appendBlock(CSS, THEME.blocks.claude.markers, '.c{}'), RTL.blocks.workbench.markers, '.w{}');
+    const both = computeSyncedCss(withOthers, on(['rtl', 'theme']), BODIES, 'codex');
+    assert.strictEqual(
+      both,
+      appendBlock(appendBlock(withOthers, THEME.blocks.codex.markers, BODIES.theme), RTL.blocks.codex.markers, BODIES.rtl)
+    );
+    assert.strictEqual(computeSyncedCss(both, on([]), BODIES, 'codex'), withOthers);
+  });
 });

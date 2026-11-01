@@ -3,12 +3,13 @@ import type { BlockMarkers } from './blocks';
 export type FeatureId = 'theme' | 'rtl';
 
 /**
- * Where a module's blocks go: Claude Code's webview/index.css, or VS Code's
- * own workbench CSS, which styles the built-in chat that Copilot runs in.
+ * Where a module's blocks go: Claude Code's webview/index.css, VS Code's
+ * own workbench CSS, which styles the built-in chat that Copilot runs in, or
+ * the stylesheet of OpenAI's Codex webview.
  */
-export type TargetId = 'claude' | 'workbench';
+export type TargetId = 'claude' | 'workbench' | 'codex';
 
-export const TARGETS: readonly TargetId[] = ['claude', 'workbench'];
+export const TARGETS: readonly TargetId[] = ['claude', 'workbench', 'codex'];
 
 export interface Asset {
   /** Path inside this extension, relative to its root. */
@@ -43,7 +44,9 @@ const RUBIK: readonly Asset[] = [
 // The Claude Code blocks use hash-stable selectors: Claude Code's class names
 // carry a build-hash suffix (e.g. messagesContainer_07S1Yg), so elements are
 // matched by [class*="prefix_"], and the chat input by role + aria-label.
-// VS Code's chat uses plain class names (interactive-session, …).
+// VS Code's chat uses plain class names (interactive-session, …). Codex mixes
+// Tailwind utilities with CSS modules named _Name_<hash>_<n>, matched by
+// [class*="_Name_"].
 export const THEME: Feature = {
   id: 'theme',
   label: 'Theme',
@@ -56,6 +59,11 @@ export const THEME: Feature = {
     workbench: {
       markers: { start: '/* bidi-copilot-theme-start */', end: '/* bidi-copilot-theme-end */' },
       cssFile: 'css/copilot-theme.css',
+      assets: RUBIK,
+    },
+    codex: {
+      markers: { start: '/* bidi-codex-theme-start */', end: '/* bidi-codex-theme-end */' },
+      cssFile: 'css/codex-theme.css',
       assets: RUBIK,
     },
   },
@@ -75,6 +83,11 @@ export const RTL: Feature = {
     workbench: {
       markers: { start: '/* bidi-copilot-rtl-start */', end: '/* bidi-copilot-rtl-end */' },
       cssFile: 'css/copilot-rtl.css',
+      assets: [],
+    },
+    codex: {
+      markers: { start: '/* bidi-codex-rtl-start */', end: '/* bidi-codex-rtl-end */' },
+      cssFile: 'css/codex-rtl.css',
       assets: [],
     },
   },
