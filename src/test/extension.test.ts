@@ -590,8 +590,8 @@ suite('extension — activate()', () => {
       assert.strictEqual(codexCssOf(codex), HEALTHY_CODEX_CSS);
       assert.deepStrictEqual(codexFontsIn(codex), []);
       assert.strictEqual(cssOf(claude), synced(['theme', 'rtl']));
-      assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
-      assert.strictEqual(item('bidi-rtl.toggle').text, '$(check) RTL');
+      assert.strictEqual(context.globalState.get(THEME.flagKey, true), true); // the modules are left as they are
+      assert.strictEqual(context.globalState.get(RTL.flagKey, true), true);
       const prompt = fake.messages.find((m) => m.text === 'BiDi Codex: turned off. Reload window to apply.');
       assert.ok(prompt, texts('info').join('\n'));
       assert.deepStrictEqual(prompt.items, ['Reload Window']);
@@ -654,6 +654,25 @@ suite('extension — activate()', () => {
       } finally {
         console.error = consoleError;
       }
+    });
+
+    test('a toggle on a Codex that links no stylesheet says why, every time; with Codex off it stays quiet', async () => {
+      await installCodex(VERSION, HEALTHY_CODEX_CSS, '<html></html>');
+      const context = await start();
+      assert.strictEqual(texts('warning').length, 1); // the window start, once per Codex version
+
+      await commands.executeCommand('bidi-codex.toggle'); // off: nothing of ours can be there
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false);
+      assert.strictEqual(texts('warning').length, 1);
+
+      await commands.executeCommand('bidi-codex.toggle'); // on: Codex cannot be styled, so it says why
+      await commands.executeCommand('bidi-codex.toggle'); // and again
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false); // restored each time
+      assert.strictEqual(texts('warning').length, 3);
+      assert.ok(texts('warning').every((t) => t.includes(`Codex ${VERSION}`)), texts('warning').join('\n'));
+
+      await commands.executeCommand('bidi-theme.toggle'); // with Codex off, a module toggle leaves it alone
+      assert.strictEqual(texts('warning').length, 3);
     });
 
     test('the Codex health warning shows once per Codex version, and only while the theme is on', async () => {

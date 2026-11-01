@@ -364,9 +364,10 @@ export async function activate(
     void vscode.window.showWarningMessage(formatCodexHealthWarning(version, report));
   };
 
-  // A Codex that links no stylesheet is said once per Codex version, then only logged.
-  const warnCodexLayout = async (version: string): Promise<void> => {
-    if (context.globalState.get<string>(LAST_CODEX_LAYOUT_KEY) === version) {
+  // A Codex that links no stylesheet is said once per Codex version when a window starts or Codex
+  // updates, then only logged; a toggle the user runs always says so.
+  const warnCodexLayout = async (version: string, always: boolean): Promise<void> => {
+    if (!always && context.globalState.get<string>(LAST_CODEX_LAYOUT_KEY) === version) {
       console.error(codexLayoutWarning(version));
       return;
     }
@@ -440,7 +441,7 @@ export async function activate(
 
   // OpenAI's Codex panel: a webview whose stylesheet sits in Codex's install.
   // While the Codex switch is off, Codex is synced with nothing enabled.
-  const syncCodexPanel = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
+  const syncCodexPanel = async (enabled: ReadonlySet<FeatureId>, silent: boolean, activation = false): Promise<SyncOutcome> => {
     const ext = vscode.extensions.getExtension(CODEX_EXTENSION_ID);
     if (!ext) {
       return 'missing';
@@ -458,7 +459,7 @@ export async function activate(
       if (!isCodexOn()) {
         return 'unchanged'; // nothing of ours can be there, and Codex is not to be styled
       }
-      await warnCodexLayout(version).catch((err: unknown) => {
+      await warnCodexLayout(version, !silent && !activation).catch((err: unknown) => {
         console.error(formatError('remember the Codex layout warning', err));
       });
       return 'error';
@@ -480,7 +481,7 @@ export async function activate(
     const enabled = enabledIds();
     const claude = await syncClaudeCode(enabled, silent);
     const chat = await syncChat(enabled, silent, activation);
-    const codex = await syncCodexPanel(enabled, silent);
+    const codex = await syncCodexPanel(enabled, silent, activation);
     return { outcome: combineOutcomes([claude, chat, codex]), chatChanged: chat === 'changed' };
   };
 
