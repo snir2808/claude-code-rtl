@@ -2735,15 +2735,16 @@ editor tabs):
   own direction, and the extension adds each list item, each line of your messages and each line
   you type in the composer. Code and commands stay left-to-right.
 
-The **Theme** and **RTL** buttons control Codex too. To leave Codex as it is while Claude Code
-and the Copilot chat stay styled, run `BiDi Codex: Toggle Codex Styling On/Off`.
+The **Theme** and **RTL** buttons control Codex too, while its own switch is on. To leave Codex as
+it is while Claude Code and the Copilot chat stay styled, turn that switch off with
+`BiDi Codex: Toggle Codex Styling On/Off`.
 
 Codex reads its stylesheet each time it opens its panel, so a change to Codex applies after
 **Reload Window**: no restart, no checksum.
 
 ### Checking the Codex panel
 
-After installing or updating, a quick check:
+After installing or updating, a quick check, in a dark theme with RTL on:
 
 1. Send Codex this prompt:
 
@@ -2764,8 +2765,8 @@ After installing or updating, a quick check:
       18px;
    7. the composer has a thin ring that turns orange while you type, and an orange send button;
    8. after `BiDi Codex: Toggle Codex Styling On/Off` and a window reload, Codex looks as it did
-      without the extension, and the Copilot chat keeps its theme. Run the command again to bring
-      the style back.
+      without the extension, and the Copilot chat keeps its theme. Run the command again, and
+      reload, to bring the style back.
 3. Run `BiDi Codex: Copy Diagnostics Script` and follow the steps it shows. The script copies a
    report on how the styles apply, without any message text. Paste the report into an issue,
    with a screenshot of anything that looks wrong.
@@ -2773,7 +2774,7 @@ After installing or updating, a quick check:
 
 - [ ] **Step 4: Update Install and Commands**
 
-- In `## Install`, change both `vscode-bidi-rtl-0.2.0.vsix` to `vscode-bidi-rtl-0.3.0.vsix`. In step 3, change `to Claude Code and to the Copilot chat` to `to Claude Code, the Copilot chat and Codex`.
+- In `## Install`, change both `vscode-bidi-rtl-0.2.0.vsix` to `vscode-bidi-rtl-0.3.0.vsix`. In step 3, change `to Claude Code and to the Copilot chat` to `to Claude Code, the Copilot chat and Codex`, and `(for the chat,` to `(for the Copilot chat,` *(the second change was added by the Task 7 review)*.
 - In the `## Commands` table, after the `BiDi Theme: Toggle Warm Theme On/Off` row, add:
 
 ```markdown
@@ -2795,14 +2796,23 @@ each time it opens its panel, so a change applies with a window reload, and ther
 
 ```markdown
 - Each Codex update installs a new folder. The extension styles it as soon as VS Code reports the
-  update, and asks for a window reload. While the theme is on, it checks that the parts of Codex
-  it styles are still in Codex's stylesheets, and warns once per Codex version if some are gone.
-  If Codex stops linking a stylesheet the extension can find, the extension says so once per
-  Codex version and leaves Codex as it is.
+  update; if Codex's panel opened before that, reload the window to see the styles. While the
+  theme is on, it checks that the parts of Codex it styles are still in Codex's stylesheets, and
+  warns once per Codex version if some are gone. If Codex stops linking a stylesheet the extension
+  can find, the extension says so once per Codex version and leaves Codex as it is.
 ```
 
 - In the uninstall bullet, change `from every Claude Code install and from the VS Code it was uninstalled in (restoring its checksum)` to `from every Claude Code install, from every Codex install and from the VS Code it was uninstalled in (restoring its checksum)`.
-- After the bullet that starts `Going back to 0.1.0`, add:
+- In the bullet that starts `When VS Code is installed where your user cannot write`, change `and Claude Code is still styled.` to `and Claude Code and Codex are still styled.` *(added by the Task 7 review)*.
+- Replace the bullet that starts `Going back to 0.1.0` with *(added by the Task 7 review)*:
+
+```markdown
+- Going back to 0.1.0 leaves the Copilot chat styled until the next VS Code update, and Codex
+  until its next update, since 0.1.0 knows only Claude Code. Turn both modules off first, then
+  install 0.1.0.
+```
+
+- After that bullet, add:
 
 ```markdown
 - Going back to 0.2.0 leaves Codex styled until its next update, since 0.2.0 knows only Claude
@@ -2816,7 +2826,7 @@ each time it opens its panel, so a change applies with a window reload, and ther
 npm run fixture:codex -- <codex-extension-dir>   # renders the Codex fixture, e.g. ~/.vscode/extensions/openai.chatgpt-26.51021.22027-darwin-arm64
 ```
 
-- In `## Notes`, change `It edits Claude Code's own CSS and VS Code's workbench CSS,` to `It edits Claude Code's and Codex's own CSS and VS Code's workbench CSS,`.
+- In `## Notes`, change `It edits Claude Code's own CSS and VS Code's workbench CSS,` to `It edits Claude Code's and Codex's own CSS and VS Code's workbench CSS,`, and `if an update to either changes the markup` to `if an update to any of them changes the markup` *(the second change was added during execution)*.
 
 - [ ] **Step 6: Check the result**
 
