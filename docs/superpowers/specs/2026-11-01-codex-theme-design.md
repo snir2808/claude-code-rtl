@@ -162,7 +162,7 @@ The RTL block applies in every theme.
 
 The block fills the three gaps in Codex's own direction handling and keeps its `dir` attributes *(changed while planning)*:
 - **Markdown:** paragraphs, headings, list items and quotes inside `[class*="_MarkdownRoot_"]` get `unicode-bidi: plaintext; text-align: start`. Each line then follows its own text: a list item its own language, a line of a user message its own language. The markdown root keeps Codex's `dir="auto"`, so an English table is not mirrored.
-- **Lists:** markers inside the item, with `::marker { unicode-bidi: normal }`, and the bullet as `"\2022  "`, as in the Copilot block.
+- **Lists:** markers inside the item, with `::marker { unicode-bidi: normal }`, and the bullet as `"\2022  "`, as in the Copilot block. In a loose list, whose items hold paragraphs, an item's first paragraph runs inline (`display:inline; unicode-bidi:normal`) so the marker sits beside its text rather than alone on the line above *(changed during execution, Task 2 review)*.
 - **Your messages:** the bubble is right-to-left (its accent bar on the right); its text follows the markdown rule above.
 - **Composer:** each ProseMirror line (`p`, `li`, headings, quotes inside `[class*="_RichTextInput_"] .ProseMirror`) follows its own text. A Hebrew line types right-to-left and aligns right.
 - **Kept left-to-right:** nothing to add: Codex marks inline code, code blocks and command output `dir="ltr"`, which isolates them from the paragraph around them.
@@ -175,7 +175,7 @@ Unit tests enforce these rules, as for the other targets.
   - every style rule's selectors start with `body.vscode-dark` or `:root:has(>body.vscode-dark)`;
   - the only top-level at-rule is `@font-face`;
   - no `direction`, `text-align` or `unicode-bidi`.
-- **`css/codex-rtl.css`:** only `direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`; every selector starts with `[class*="_MarkdownRoot_"]`, `[class*="_RichTextInput_"]` or the user message (`.bg-user-message[class*="_bubble_"]`).
+- **`css/codex-rtl.css`:** only `direction`, `text-align`, `unicode-bidi`, list marker placement and the bullet's `content`, plus `display:inline` on a list item's first paragraph *(changed during execution)*; every selector starts with `[class*="_MarkdownRoot_"]`, `[class*="_RichTextInput_"]` or the user message (`.bg-user-message[class*="_bubble_"]`).
 - **Hooks, in both files:** selectors may use only:
   - CSS-module prefixes (`[class*="_Name_"]`, never a full hashed name);
   - semantic classes and attributes from a fixed list, kept with the health check's hooks (the classes `ProseMirror` and `bg-user-message`, and the attributes `data-theme` and `data-composer-surface-variant`) *(changed while planning)*;
@@ -219,7 +219,7 @@ Unit tests enforce these rules, as for the other targets.
   - the synced blocks.
 - **The DOM,** reproduced from Codex's component code with its real class strings:
   - a user message with a Hebrew line and an English line;
-  - a response with a Hebrew heading, Hebrew and English paragraphs, a list with an English item and a Hebrew item, inline code and a code block;
+  - a response with a Hebrew heading, Hebrew and English paragraphs, a list with an English item and a Hebrew item, a loose list of the same, inline code and a code block;
   - secondary text and a bordered box;
   - the composer with a Hebrew line and an English line, and its send button.
 

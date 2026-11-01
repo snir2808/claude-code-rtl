@@ -39,7 +39,7 @@
   - No `direction`, `text-align` or `unicode-bidi` declarations.
   - `!important` only on `--vscode-*` declarations, all in the `:root:has(>body.vscode-dark)` palette rule. VS Code writes those colors inline on `<html>`, and only `!important` outranks an inline style.
 - `css/codex-rtl.css`:
-  - Only `direction`, `text-align`, `unicode-bidi`, `list-style-position` and the bullet's `content` in `::marker` rules.
+  - Only `direction`, `text-align`, `unicode-bidi`, `list-style-position` and the bullet's `content` in `::marker` rules, plus `display:inline` (with `unicode-bidi:normal`) on a list item's first paragraph, `[class*="_MarkdownRoot_"] [class*="_ListItem_"]>[class*="_Paragraph_"]:first-child`, so a loose item's marker sits beside its text *(changed during execution, Task 2 review)*.
   - Every selector starts with `[class*="_MarkdownRoot_"]`, `[class*="_RichTextInput_"]` or `.bg-user-message[class*="_bubble_"]`.
   - No rule on the markdown root itself: it keeps Codex's `dir="auto"`.
   - No `!important`.
@@ -606,6 +606,7 @@ Background, from Codex 26.51021's code:
 - The composer is a ProseMirror editor with one `<p>` per line and no direction handling.
 - `unicode-bidi: plaintext` makes each line take the direction of its own text, and `text-align: start` then aligns it to that side.
 - The prototype (Chrome 156, against Codex's real CSS) measured each Hebrew line 0px from the right and each English line 0px from the left, in answers, in a two-line user message and in the composer.
+- A loose list (blank lines between items) renders each item as `<li><p class="_Paragraph_…">…</p></li>`. With inside markers the paragraph, a block, would leave the marker alone on the line above, on the list's side. So the item's first paragraph runs inline, with `unicode-bidi:normal` so its text sets the item's direction: each item stays one line, with its marker beside it on its own side *(changed during execution, Task 2 review)*.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -627,6 +628,8 @@ const HASHED_CODEX_CLASS = /_[A-Za-z]+_[a-z0-9]{5}_\d+/;
 const MARKDOWN = '[class*="_MarkdownRoot_"]';
 const COMPOSER = '[class*="_RichTextInput_"]';
 const USER_MESSAGE = '.bg-user-message[class*="_bubble_"]';
+/** A loose list item's first paragraph, which runs inline beside the item's marker. */
+const LOOSE_ITEM_PARAGRAPH = '[class*="_MarkdownRoot_"] [class*="_ListItem_"]>[class*="_Paragraph_"]:first-child';
 
 // Each suite reads its file in suiteSetup, so a missing file fails its tests
 // instead of aborting the whole run while the suites are registered.
@@ -657,11 +660,11 @@ suite('codex-rtl.css', () => {
     }
   });
 
-  test('declares only direction and list-marker properties', () => {
+  test('declares only direction and list-marker properties, plus inline display for a loose list item\'s first paragraph', () => {
     const allowed = new Set(['direction', 'text-align', 'unicode-bidi', 'list-style-position']);
     for (const rule of rules) {
       for (const property of properties(rule.body)) {
-        const ok = allowed.has(property) || (property === 'content' && rule.prelude.endsWith('::marker'));
+        const ok = allowed.has(property) || (property === 'content' && rule.prelude.endsWith('::marker')) || (property === 'display' && rule.prelude === LOOSE_ITEM_PARAGRAPH);
         assert.ok(ok, `${property} in "${rule.prelude}"`);
       }
     }
@@ -693,6 +696,12 @@ suite('codex-rtl.css', () => {
     assert.ok(rules.some((r) => r.prelude.endsWith('[class*="_ListItem_"]::marker') && oneLine(r.body) === 'unicode-bidi:normal;'));
   });
 
+  test("a loose list item's first paragraph runs inline, so its marker sits beside it", () => {
+    const rule = rules.find((r) => r.prelude === LOOSE_ITEM_PARAGRAPH);
+    assert.ok(rule, 'no rule for a loose list item\'s first paragraph');
+    assert.strictEqual(oneLine(rule.body), 'display:inline;unicode-bidi:normal;');
+  });
+
   test('your message is right-to-left, so its accent bar sits on the right', () => {
     const rule = rules.find((r) => r.prelude === USER_MESSAGE);
     assert.ok(rule, 'no rule for your message');
@@ -710,7 +719,7 @@ suite('codex-rtl.css', () => {
 - [ ] **Step 2: Run the test to see it fail**
 
 Run: `npm test`
-Expected: the `codex-rtl.css` suite FAILS in its `"before all" hook` with `ENOENT: no such file or directory, open '…/css/codex-rtl.css'`, so its 8 tests do not run; every other suite passes.
+Expected: the `codex-rtl.css` suite FAILS in its `"before all" hook` with `ENOENT: no such file or directory, open '…/css/codex-rtl.css'`, so its 9 tests do not run; every other suite passes.
 
 - [ ] **Step 3: Write `css/codex-rtl.css`**
 
@@ -724,8 +733,9 @@ Expected: the `codex-rtl.css` suite FAILS in its `"before all" hook` with `ENOEN
    composer, which has no direction handling at all. Codex's dir attributes
    stay, so an English table is not mirrored. Rules (enforced by
    src/test/codex-css.test.ts): only direction, text-align, unicode-bidi and
-   list-marker placement, and every selector starts with the markdown root,
-   the composer's editor or your message. */
+   list-marker placement, plus display:inline on a list item's first
+   paragraph, and every selector starts with the markdown root, the
+   composer's editor or your message. */
 
 /* Markdown, in your messages and in Codex's answers: text-align:start lets
    each line's unicode-bidi:plaintext put Hebrew on the right and English on
@@ -744,6 +754,14 @@ unicode-bidi:normal;
 [class*="_MarkdownRoot_"] [class*="_UnorderedList_"]>[class*="_ListItem_"]::marker{
 content:"\2022  ";
 }
+/* A loose list item (blank lines between items) holds paragraphs. Its first
+   paragraph runs inline, so the inside marker sits beside it, on the item's
+   side, instead of alone on the line above. unicode-bidi:normal lets its text
+   set the item's direction (an isolate would hide it from the item). */
+[class*="_MarkdownRoot_"] [class*="_ListItem_"]>[class*="_Paragraph_"]:first-child{
+display:inline;
+unicode-bidi:normal;
+}
 /* Your message: a right-to-left block, so its accent bar (css/codex-theme.css)
    sits on the right, as in Claude Code. Its lines follow the markdown rule. */
 .bg-user-message[class*="_bubble_"]{
@@ -759,7 +777,7 @@ text-align:start;
 - [ ] **Step 4: Run the test to see it pass**
 
 Run: `npm test`
-Expected: PASS, including the 8 `codex-rtl.css` tests.
+Expected: PASS, including the 9 `codex-rtl.css` tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1351,7 +1369,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 The fixture page reproduces what Codex 26.51021 renders, with its real class strings:
 - your message: the `user-message-bubble` component, holding the `user-formatted-text` markdown;
-- an answer: the markdown root and its default components (`presentation-components`: `p`, `h2`, `ul`/`li`, all with `dir="auto"`; code with `dir="ltr"`);
+- an answer: the markdown root and its default components (`presentation-components`: `p`, `h2`, `ul`/`li`, all with `dir="auto"`; code with `dir="ltr"`), with a tight list and a loose one (its items hold paragraphs);
 - the composer: `composer-layout`, the `prompt-editor`'s `_RichTextInput_` wrapper and a ProseMirror editor, and the send button's `bg-composer-primary text-composer-primary`.
 
 The page loads Codex's main stylesheet and the conversation's CSS chunks, the way Codex's page does. The prototype rendered this page with the CSS of Tasks 2 and 3 and measured every value the checks expect.
@@ -1638,6 +1656,7 @@ html,body{margin:0}
 <p class="_Paragraph_16avx_2" dir="auto" id="answer-he">הפונקציה מביאה את קובץ ה־CSS למצב שמתאים למודולים, ואז מעתיקה את <code class="_InlineCode_16avx_2" dir="ltr" id="inline-code">rubik.woff2</code> לתיקייה.</p>
 <p class="_Paragraph_16avx_2" dir="auto" id="answer-en">In short: fonts are copied before the CSS is written.</p>
 <ul class="_List_16avx_2 _UnorderedList_16avx_2" dir="auto"><li class="_ListItem_16avx_2" id="li-en">Fonts first</li><li class="_ListItem_16avx_2" id="li-he">ואז ה־CSS</li></ul>
+<ul class="_List_16avx_2 _UnorderedList_16avx_2" dir="auto"><li class="_ListItem_16avx_2" id="loose-en"><p class="_Paragraph_16avx_2" dir="auto" id="loose-en-p">Fonts first, then the CSS</p></li><li class="_ListItem_16avx_2" id="loose-he"><p class="_Paragraph_16avx_2" dir="auto" id="loose-he-p">ואז ה־CSS נכתב</p><p class="_Paragraph_16avx_2" dir="auto" id="loose-he-p2">ובסוף מוחקים גופנים שלא בשימוש</p></li></ul>
 <pre dir="ltr" id="code-block"><code>await syncInstall(dir, root, enabled);</code></pre>
 <p class="_Paragraph_16avx_2" dir="auto"><span class="text-secondary" id="secondary">Worked for 2m</span> <span class="text-tertiary" id="tertiary">2 files</span></p>
 <div class="border border-border rounded-lg p-2" id="bordered">box</div>
@@ -1705,6 +1724,11 @@ document.fonts.ready.then(async () => {
     userEnLeft: Math.round(textRect('#user-en').left - rect('#user-p').left),
     editorHeRight: Math.round(rect('#editor-he').right - textRect('#editor-he').right),
     editorEnLeft: Math.round(textRect('#editor-en').left - rect('#editor-en').left),
+    looseEnTop: Math.round(textRect('#loose-en-p').top - rect('#loose-en').top),
+    looseHeTop: Math.round(textRect('#loose-he-p').top - rect('#loose-he').top),
+    looseEnLeft: Math.round(textRect('#loose-en-p').left - rect('#loose-en').left),
+    looseHeRight: Math.round(rect('#loose-he').right - textRect('#loose-he-p').right),
+    looseSecondBelow: Math.round(rect('#loose-he-p2').top - textRect('#loose-he-p').bottom),
   };
   q('#editor').focus();
   report.composerFocused = cs('#composer').boxShadow;
@@ -1762,6 +1786,10 @@ function check(mode, r) {
     r.listHeRight > 0 && r.listHeRight < 30 && r.listEnLeft > 0 && r.listEnLeft < 30,
     `list markers: the Hebrew item's text ends ${r.listHeRight}px from the right, the English item's starts ${r.listEnLeft}px from the left (want each marker before its text)`
   );
+  expect(
+    r.looseEnTop <= 8 && r.looseHeTop <= 8 && r.looseEnLeft > 0 && r.looseEnLeft < 30 && r.looseHeRight > 0 && r.looseHeRight < 30 && r.looseSecondBelow >= 0,
+    `loose list: text ${r.looseEnTop}/${r.looseHeTop}px below its item's top, English ${r.looseEnLeft}px from the left, Hebrew ${r.looseHeRight}px from the right, the second paragraph ${r.looseSecondBelow}px below the first (want each marker beside its text)`
+  );
   expect(r.userHeRight <= 1 && r.userEnLeft <= 1, `your message's lines: Hebrew ${r.userHeRight}px from the right, English ${r.userEnLeft}px from the left`);
   expect(r.editorHeRight <= 1 && r.editorEnLeft <= 1, `composer lines: Hebrew ${r.editorHeRight}px from the right, English ${r.editorEnLeft}px from the left`);
   expect(r.codeDir === 'ltr' && r.inlineCodeDir === 'ltr', `code: block ${r.codeDir}, inline ${r.inlineCodeDir} (want ltr)`);
@@ -1772,7 +1800,7 @@ function check(mode, r) {
     `diagnostics: blocks ${JSON.stringify(d.blocks)}`
   );
   expect(
-    d.counts && d.counts.userMessage === 1 && d.counts.listItem === 2 && d.counts.composerLine === 2 && d.counts.sendButton === 1,
+    d.counts && d.counts.userMessage === 1 && d.counts.listItem === 4 && d.counts.composerLine === 2 && d.counts.sendButton === 1,
     `diagnostics: counts ${JSON.stringify(d.counts)}`
   );
   expect(
@@ -1922,7 +1950,7 @@ screenshots: …/fixture-out
 ```
 
 Then look at `fixture-out/codex-fixture-dark.png` and `fixture-out/codex-fixture-light.png`:
-- Dark: a warm brown panel in Rubik. Your message is a full-width block with an orange bar on the right; its Hebrew line is on the right and its English line on the left. The Hebrew heading and paragraph are on the right and the English paragraph on the left. The list's bullets are orange, each before its item on that item's side. The code line is on the left. The composer is rounded, with an orange ring (the page focuses it), its Hebrew line on the right and its English line on the left, and an orange send button.
+- Dark: a warm brown panel in Rubik. Your message is a full-width block with an orange bar on the right; its Hebrew line is on the right and its English line on the left. The Hebrew heading and paragraph are on the right and the English paragraph on the left. The bullets of both lists are orange, each beside its item's text on that item's side, one line per item (the loose list's second Hebrew paragraph sits under its first). The code line is on the left. The composer is rounded, with an orange ring (the page focuses it), its Hebrew line on the right and its English line on the left, and an orange send button.
 - Light: Codex's own look, with the same direction per line.
 
 A failing check names the value it got. The prototype measured every expected value against this Codex (26.51021), so a failure most likely means a step here was copied differently. Compare the two files before changing a value.
