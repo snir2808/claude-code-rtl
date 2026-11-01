@@ -228,3 +228,103 @@ export function formatWorkbenchHealthWarning(version: string, report: WorkbenchH
   return `BiDi Theme: VS Code ${version} changed its chat markup, so parts of the Copilot chat theme may not apply. ` +
     `Missing: ${report.missingClasses.map((name) => `.${name}`).join(', ')}.`;
 }
+
+/**
+ * What the Codex blocks rely on in Codex's own CSS (every webview/assets/*.css
+ * file, without this extension's blocks): CSS-module prefixes ("._Name_"),
+ * classes (".name"), attributes ("[name") and Codex's custom properties
+ * ("--name"), set or read. Exactly the hooks css/codex-theme.css and
+ * css/codex-rtl.css use (src/test/codex-css.test.ts checks that). VS Code's
+ * --vscode-* colors are VS Code's, so they are not listed.
+ */
+export const REQUIRED_CODEX_HOOKS: readonly string[] = [
+  // the markdown of your messages and Codex's answers
+  '._MarkdownRoot_',
+  '._Paragraph_',
+  '._Heading_',
+  '._ListItem_',
+  '._UnorderedList_',
+  '._Blockquote_',
+  '._InlineCode_',
+  '--markdown-font-size',
+  '--markdown-line-height',
+  // your messages
+  '.bg-user-message',
+  '._bubble_',
+  '--color-background-user-message',
+  '--color-text-user-message',
+  // the composer and its send button
+  '._ComposerLayoutRoot_',
+  '._RichTextInput_',
+  '.ProseMirror',
+  '[data-composer-surface-variant',
+  '--composer-border-radius',
+  '--composer-layout-surface-shadow',
+  '--color-background-composer-primary',
+  '--color-text-composer-primary',
+  // fonts and the palette
+  '[data-theme',
+  '--font-ui-family',
+  '--codex-chat-font-size-override',
+  '--app-color-border',
+  '--app-color-text-secondary',
+];
+
+export interface CodexHealthReport {
+  /** Codex's stylesheets could not be read; nothing in them was checked. */
+  unreadable: boolean;
+  missingHooks: string[];
+}
+
+/** A hook as a pattern: a module prefix or an attribute may go on, a class or a property may not. */
+function codexHookPattern(hook: string): RegExp {
+  const open = hook.endsWith('_') || hook.startsWith('[');
+  return new RegExp(escapeRegExp(hook) + (open ? '' : '(?![\\w-])'));
+}
+
+/**
+ * Checks Codex's CSS, every file together and without this extension's
+ * blocks; null stands for files that could not be read.
+ */
+export function checkCodexHealth(css: string | null): CodexHealthReport {
+  if (css === null) {
+    return { unreadable: true, missingHooks: [] };
+  }
+  return { unreadable: false, missingHooks: REQUIRED_CODEX_HOOKS.filter((hook) => !codexHookPattern(hook).test(css)) };
+}
+
+export function isCodexHealthy(report: CodexHealthReport): boolean {
+  return !report.unreadable && report.missingHooks.length === 0;
+}
+
+/**
+ * Never rejects. Reads every CSS file next to Codex's stylesheet (Codex loads
+ * the conversation's CSS modules from the same folder, about 3 MB in all) and
+ * checks them without this extension's blocks.
+ */
+export async function checkCodexInstallHealth(cssPath: string): Promise<CodexHealthReport> {
+  const dir = path.dirname(cssPath);
+  let css: string;
+  try {
+    const names = (await fs.promises.readdir(dir)).filter((name) => name.endsWith('.css'));
+    css = (await Promise.all(names.map((name) => fs.promises.readFile(path.join(dir, name), 'utf8')))).join('\n');
+  } catch {
+    return checkCodexHealth(null);
+  }
+  for (const feature of FEATURES) {
+    css = stripBlock(css, feature.blocks.codex.markers);
+  }
+  return checkCodexHealth(css);
+}
+
+/** The warning for an unhealthy Codex; empty for a healthy one. */
+export function formatCodexHealthWarning(version: string, report: CodexHealthReport): string {
+  if (isCodexHealthy(report)) {
+    return '';
+  }
+  if (report.unreadable) {
+    return `BiDi Theme: could not read the stylesheets of Codex ${version}, so the Codex theme was not checked.`;
+  }
+  return `BiDi Theme: Codex ${version} changed its markup, so parts of the Codex theme may not apply. ` +
+    `Missing: ${report.missingHooks.join(', ')}.`;
+}

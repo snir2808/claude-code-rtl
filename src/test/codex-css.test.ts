@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RTL } from '../features';
-import { TopLevelRule, properties, splitSelectors, topLevelRules } from './css-rules';
+import { RTL, THEME } from '../features';
+import { REQUIRED_CODEX_HOOKS } from '../health';
+import { TopLevelRule, classNames, properties, splitSelectors, topLevelRules, urls } from './css-rules';
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (file: string): string => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -97,5 +98,131 @@ suite('codex-rtl.css', () => {
     assert.ok(css.includes('\\2022'));
     assert.ok(!css.includes('\\\\2022'));
     assert.strictEqual(HASHED_CODEX_CLASS.exec(withoutComments(css)), null);
+  });
+});
+
+const DARK = 'body.vscode-dark';
+/** <html>, in dark themes: where VS Code writes its colors inline. */
+const DARK_ROOT = ':root:has(>body.vscode-dark)';
+
+suite('codex-theme.css — rules', () => {
+  let css: string;
+  let rules: TopLevelRule[];
+
+  suiteSetup(() => {
+    css = read(THEME.blocks.codex.cssFile);
+    rules = topLevelRules(css);
+  });
+
+  test('holds only the block body: no markers', () => {
+    assert.ok(!css.includes('bidi-codex-'));
+    assert.ok(rules.length > 0);
+  });
+
+  test('the only top-level at-rule is @font-face', () => {
+    for (const rule of rules.filter((r) => r.prelude.startsWith('@'))) {
+      assert.strictEqual(rule.prelude, '@font-face');
+    }
+  });
+
+  test('every selector starts with body.vscode-dark or :root:has(>body.vscode-dark)', () => {
+    for (const rule of rules.filter((r) => !r.prelude.startsWith('@'))) {
+      for (const selector of splitSelectors(rule.prelude)) {
+        const scoped = [DARK, DARK_ROOT].some(
+          (scope) => selector.startsWith(scope) && /^($|[\s>:.[])/.test(selector.slice(scope.length))
+        );
+        assert.ok(scoped, `unscoped selector: ${selector}`);
+      }
+    }
+  });
+
+  test('no direction, text-align or unicode-bidi declarations', () => {
+    for (const rule of rules) {
+      const bad = /(^|[;{\s])(direction|text-align|unicode-bidi)\s*:/i.exec(rule.body);
+      assert.strictEqual(bad, null, `forbidden property in "${rule.prelude}"`);
+    }
+  });
+
+  test("!important only on the --vscode-* colors, which VS Code writes inline on <html>", () => {
+    for (const rule of rules) {
+      for (const declaration of rule.body.split(';').map((d) => d.trim()).filter(Boolean)) {
+        const property = declaration.slice(0, declaration.indexOf(':')).trim();
+        const important = /!\s*important$/i.test(declaration);
+        if (property.startsWith('--vscode-')) {
+          assert.strictEqual(rule.prelude, DARK_ROOT, `${property} outside the palette rule`);
+          assert.ok(important, `${property} needs !important to outrank VS Code's inline style`);
+        } else {
+          assert.ok(!important, `!important on ${property} in "${rule.prelude}"`);
+        }
+      }
+    }
+  });
+
+  test('the palette redefines the VS Code colors Codex paints the panel with', () => {
+    const palette = rules.find((r) => r.prelude === DARK_ROOT);
+    assert.ok(palette, 'no palette rule');
+    const declared = properties(palette.body); // lowercased
+    for (const color of [
+      '--vscode-foreground',
+      '--vscode-sidebar-background',
+      '--vscode-editor-background',
+      '--vscode-input-background',
+      '--vscode-input-border',
+      '--vscode-focusborder',
+      '--vscode-menu-background',
+      '--vscode-textlink-foreground',
+      '--vscode-terminal-background',
+    ]) {
+      assert.ok(declared.includes(color), color);
+    }
+  });
+
+  test('names no hashed class', () => {
+    assert.strictEqual(HASHED_CODEX_CLASS.exec(withoutComments(css)), null);
+  });
+});
+
+suite('codex-theme.css — assets', () => {
+  test('every url() points at a declared theme asset, and every asset is used', () => {
+    const css = read(THEME.blocks.codex.cssFile);
+    assert.deepStrictEqual(urls(css).sort(), THEME.blocks.codex.assets.map((a) => a.target).sort());
+  });
+});
+
+/**
+ * The Codex hooks a stylesheet uses, written the way REQUIRED_CODEX_HOOKS
+ * writes them: CSS-module prefixes ("._Name_"), classes (".name"),
+ * attributes ("[name") and Codex's custom properties ("--name"), set or read.
+ * VS Code's own body class and --vscode-* colors are not Codex's.
+ */
+function codexHooks(css: string): Set<string> {
+  const hooks = new Set<string>();
+  for (const rule of topLevelRules(css).filter((r) => !r.prelude.startsWith('@'))) {
+    for (const m of rule.prelude.matchAll(/\[\s*([\w-]+)\s*(?:[~|^$*]?=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s]+)))?\s*\]/g)) {
+      hooks.add(m[1] === 'class' ? `.${m[2] ?? m[3] ?? m[4]}` : `[${m[1]}`);
+    }
+    for (const name of classNames(rule.prelude.replace(/\[[^\]]*\]/g, ''))) {
+      if (name !== 'vscode-dark') {
+        hooks.add(`.${name}`);
+      }
+    }
+    for (const property of properties(rule.body)) {
+      if (property.startsWith('--') && !property.startsWith('--vscode-')) {
+        hooks.add(property);
+      }
+    }
+    for (const [, name] of rule.body.matchAll(/var\(\s*(--[\w-]+)/g)) {
+      if (!name.startsWith('--vscode-')) {
+        hooks.add(name);
+      }
+    }
+  }
+  return hooks;
+}
+
+suite('Codex CSS — health check coverage', () => {
+  test('REQUIRED_CODEX_HOOKS lists exactly the hooks both files use', () => {
+    const used = new Set([...codexHooks(read(THEME.blocks.codex.cssFile)), ...codexHooks(read(RTL.blocks.codex.cssFile))]);
+    assert.deepStrictEqual([...used].sort(), [...REQUIRED_CODEX_HOOKS].sort());
   });
 });

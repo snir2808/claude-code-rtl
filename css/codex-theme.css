@@ -1,0 +1,155 @@
+/* Warm reading theme for OpenAI's Codex panel, dark themes only.
+   Codex's webview takes its colors from VS Code's theme: VS Code writes them
+   inline on the page's <html> (--vscode-*), and Codex derives its own tokens
+   from them on :root, in its theme layer. So the palette redefines VS Code's
+   colors on <html>, plus a few of Codex's own tokens that do not come from
+   them. Components are matched by Codex's CSS-module prefixes
+   ([class*="_Name_"]: the class names carry a build hash) and a few semantic
+   classes. Rules (enforced by src/test/codex-css.test.ts): every selector
+   starts with body.vscode-dark or :root:has(>body.vscode-dark), only
+   @font-face at top level, !important only on the --vscode-* colors, and no
+   direction, text-align or unicode-bidi (those belong to css/codex-rtl.css).
+   The font files sit next to Codex's stylesheet. */
+
+@font-face{
+font-family:"BiDi Rubik";
+src:url("bidi-theme-rubik-hebrew.woff2") format("woff2");
+font-style:normal;
+font-weight:300 900;
+font-display:swap;
+unicode-range:U+0307-0308,U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;
+}
+@font-face{
+font-family:"BiDi Rubik";
+src:url("bidi-theme-rubik-latin.woff2") format("woff2");
+font-style:normal;
+font-weight:300 900;
+font-display:swap;
+unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* VS Code's colors. !important: VS Code writes them inline on <html>, and
+   only an !important declaration outranks an inline style. Every Codex token
+   derived from them follows: text, surfaces, inputs, menus, lists, buttons,
+   links, code, and the terminal colors command output is drawn with. */
+:root:has(>body.vscode-dark){
+--vscode-foreground:#ebe5da!important;
+--vscode-descriptionForeground:#a39d92!important;
+--vscode-disabledForeground:#7d766a!important;
+--vscode-icon-foreground:#cfc6b7!important;
+--vscode-focusBorder:#d97757!important;
+--vscode-widget-border:#3b362f!important;
+--vscode-sideBar-background:#1b1a18!important;
+--vscode-editor-background:#1b1a18!important;
+--vscode-panel-background:#1b1a18!important;
+--vscode-editorWidget-background:#242120!important;
+--vscode-input-background:#242120!important;
+--vscode-input-foreground:#f5f0e8!important;
+--vscode-input-border:#736a5d!important;
+--vscode-input-placeholderForeground:#9a9387!important;
+--vscode-dropdown-background:#242120!important;
+--vscode-dropdown-foreground:#ebe5da!important;
+--vscode-dropdown-border:#3b362f!important;
+--vscode-menu-background:#242120!important;
+--vscode-menu-foreground:#ebe5da!important;
+--vscode-menu-selectionBackground:#3a332b!important;
+--vscode-menu-selectionForeground:#f5f0e8!important;
+--vscode-menu-border:#3b362f!important;
+--vscode-menu-separatorBackground:#3b362f!important;
+--vscode-list-hoverBackground:#2a2622!important;
+--vscode-list-activeSelectionBackground:#3a332b!important;
+--vscode-list-activeSelectionForeground:#f5f0e8!important;
+--vscode-list-inactiveSelectionBackground:#3a332b!important;
+--vscode-toolbar-hoverBackground:#2a2622!important;
+--vscode-toolbar-activeBackground:#3a332b!important;
+--vscode-button-background:#d97757!important;
+--vscode-button-foreground:#1b1a18!important;
+--vscode-button-hoverBackground:#e3876a!important;
+--vscode-button-secondaryBackground:#2f2b26!important;
+--vscode-button-secondaryForeground:#ddd4c6!important;
+--vscode-button-secondaryHoverBackground:#38332c!important;
+--vscode-badge-background:#d97757!important;
+--vscode-badge-foreground:#1b1a18!important;
+--vscode-textLink-foreground:#e8a07f!important;
+--vscode-textLink-activeForeground:#f2b896!important;
+--vscode-textPreformat-foreground:#f2b896!important;
+--vscode-textPreformat-background:#2b2824!important;
+--vscode-textCodeBlock-background:#121110!important;
+--vscode-textBlockQuote-background:#211f1c!important;
+--vscode-textBlockQuote-border:#d97757!important;
+--vscode-textSeparator-foreground:#3b362f!important;
+--vscode-terminal-background:#121110!important;
+--vscode-terminal-foreground:#cfc6b7!important;
+}
+/* Codex's own tokens. Codex declares them on :root and again on [data-theme]
+   elements, in its theme layer, which an unlayered rule outranks. Without
+   the two --app-color hooks, borders and secondary text are mixes of the
+   text color. */
+:root:has(>body.vscode-dark),
+:root:has(>body.vscode-dark) [data-theme]{
+--font-ui-family:"BiDi Rubik",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+--codex-chat-font-size-override:15px;
+--app-color-border:#3b362f;
+--app-color-text-secondary:#a39d92;
+--color-background-user-message:#262320;
+--color-text-user-message:#f5f0e8;
+--color-background-composer-primary:#c6613f;
+--color-text-composer-primary:#faf9f5;
+}
+/* The webview's body is transparent over VS Code's side bar. */
+body.vscode-dark{
+background:#1b1a18;
+}
+
+/* Your messages: a full-width block with an accent bar where the text
+   starts. css/codex-rtl.css makes the block right-to-left, so with RTL on the
+   bar sits on the right, as in Claude Code. */
+body.vscode-dark .bg-user-message[class*="_bubble_"]{
+width:100%;
+max-width:none;
+border-inline-start:3px solid #d97757;
+border-radius:14px;
+padding:12px 16px;
+}
+
+/* Codex's markdown: roomier lines (Codex sizes them from this variable), and
+   the Claude theme's headings, list markers and inline code. */
+body.vscode-dark [class*="_MarkdownRoot_"]{
+--markdown-line-height:calc(var(--markdown-font-size) * 1.75);
+}
+body.vscode-dark [class*="_MarkdownRoot_"] [class*="_Heading_"]{
+font-weight:600;
+color:#f5f0e8;
+}
+body.vscode-dark [class*="_MarkdownRoot_"] h1[class*="_Heading_"]{
+font-size:20px;
+}
+body.vscode-dark [class*="_MarkdownRoot_"] h2[class*="_Heading_"]{
+font-size:18px;
+}
+body.vscode-dark [class*="_MarkdownRoot_"] h3[class*="_Heading_"]{
+font-size:16px;
+}
+body.vscode-dark [class*="_MarkdownRoot_"] [class*="_ListItem_"]::marker{
+color:#d97757;
+}
+body.vscode-dark [class*="_MarkdownRoot_"] [class*="_InlineCode_"]{
+background:#2b2824;
+color:#f2b896;
+}
+
+/* The composer: rounder, with a thin ring that turns to the accent while you
+   type. Codex forces border:0!important on it in a layer, so the ring is its
+   surface shadow. Inline composers stay as they are. */
+body.vscode-dark [class*="_ComposerLayoutRoot_"]:not([data-composer-surface-variant="inline"]){
+--composer-border-radius:18px;
+--composer-layout-surface-shadow:0 0 0 1px #736a5d;
+}
+body.vscode-dark [class*="_ComposerLayoutRoot_"]:not([data-composer-surface-variant="inline"]):focus-within{
+--composer-layout-surface-shadow:0 0 0 1px #d97757;
+}
+/* The text you type: 1.2x the 15px messages, as in Claude Code. */
+body.vscode-dark [class*="_RichTextInput_"] .ProseMirror{
+font-size:18px;
+line-height:1.5;
+}
