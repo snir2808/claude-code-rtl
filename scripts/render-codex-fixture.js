@@ -19,7 +19,7 @@ const SIZE = '900,1100';
 // The CSS chunks Codex loads with a conversation, by name: their file names end in a hash.
 const CHUNKS = ['markdown', 'user-message-bubble', 'user-formatted-text', 'composer-layout', 'prompt-editor', 'prosemirror', 'composer-content'];
 // Text the page shows. The diagnostics report must hold none of it.
-const PAGE_TEXT = ['syncInstall', 'README', 'uninstall', 'הפונקציה', 'Fonts first', 'ואז'];
+const PAGE_TEXT = ['syncInstall', 'README', 'uninstall', 'הפונקציה', 'Fonts first', 'ואז', 'appends', 'התקינות'];
 const USAGE = `usage: node scripts/render-codex-fixture.js <codex-extension-dir> [out-dir]
 e.g. node scripts/render-codex-fixture.js ~/.vscode/extensions/openai.chatgpt-26.51021.22027-darwin-arm64
 Chrome: ${CHROME} (set CHROME_PATH to use another)`;
@@ -59,6 +59,11 @@ function check(mode, r) {
   expect(
     d.samples && d.samples.paragraph.some((s) => s.firstStrong === 'rtl' && s.side === 'right'),
     `diagnostics: no Hebrew paragraph on the right in ${JSON.stringify(d.samples && d.samples.paragraph)}`
+  );
+  const wrapped = d.samples ? d.samples.paragraph.slice(0, 4).map((s) => `${s.firstStrong}:${s.side}`).join(' ') : '';
+  expect(
+    r.wrappedLines.every((lines) => lines >= 2) && wrapped === 'rtl:right ltr:left rtl:right ltr:left',
+    `diagnostics: the wrapped paragraphs (${r.wrappedLines.join(', ')} lines) read ${wrapped} (want rtl:right ltr:left rtl:right ltr:left)`
   );
   const leaked = PAGE_TEXT.filter((text) => JSON.stringify(d).includes(text));
   expect(leaked.length === 0, `diagnostics: the report holds the page's text: ${leaked.join(', ')}`);

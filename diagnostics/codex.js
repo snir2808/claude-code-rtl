@@ -1,8 +1,8 @@
 // BiDi RTL & Theme: a report on how the extension's blocks apply in the Codex panel, for its
 // DevTools console. Click in the Codex panel, run "Developer: Open Webview Developer Tools", open
-// the Console, type "allow pasting" the first time, then paste this and press Enter. It reads only
-// the page's structure and computed styles, never message text or anything from your files: the
-// report holds class and data-attribute names, the page's window type and theme kind, computed
+// the Console, type "allow pasting" the first time, then paste this and press Enter. It reads the
+// page's structure and computed styles and never exports message text or anything from your files:
+// the report holds class and data-attribute names, the page's window type and theme kind, computed
 // styles, and the names of Codex's own stylesheets. It goes to the clipboard as JSON.
 (function bidiCodexDiagnostics() {
   'use strict';
@@ -68,17 +68,32 @@
   const style = (el) => view.getComputedStyle(el);
   const classes = (el) => (typeof el.className === 'string' ? el.className.split(/\s+/).filter(Boolean) : []);
   const attributeNames = (el) => el.getAttributeNames().filter((name) => name === 'dir' || name.startsWith('data-'));
-  // Which side of its box the text sits on, measured from its rendered lines.
+  // Which side of its box the text sits on, judged on its shortest rendered line: a full line can
+  // fill the box and say nothing about the side.
   const side = (el) => {
     const range = doc.createRange();
     range.selectNodeContents(el);
-    const text = range.getBoundingClientRect();
-    if (text.width === 0) {
+    const lines = [];
+    for (const rect of range.getClientRects()) {
+      if (rect.width === 0) {
+        continue;
+      }
+      const middle = (rect.top + rect.bottom) / 2;
+      const line = lines.find((l) => middle >= l.top && middle <= l.bottom);
+      if (line) {
+        line.left = Math.min(line.left, rect.left);
+        line.right = Math.max(line.right, rect.right);
+      } else {
+        lines.push({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
+      }
+    }
+    if (lines.length === 0) {
       return 'empty';
     }
+    const shortest = lines.reduce((a, b) => (b.right - b.left < a.right - a.left ? b : a));
     const box = el.getBoundingClientRect();
-    const left = text.left - box.left;
-    const right = box.right - text.right;
+    const left = shortest.left - box.left;
+    const right = box.right - shortest.right;
     return Math.abs(left - right) < 2 ? 'center' : left < right ? 'left' : 'right';
   };
   const sample = (el) => {

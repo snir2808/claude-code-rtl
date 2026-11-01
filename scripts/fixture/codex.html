@@ -25,6 +25,13 @@ html,body{margin:0}
 <div id="root">
 <div class="flex flex-col gap-6">
 
+<div dir="auto" class="_MarkdownRoot_16avx_2 [&amp;&gt;*:first-child]:mt-0 [&amp;&gt;*:last-child]:mb-0" id="wrapped">
+<p class="_Paragraph_16avx_2" dir="auto">כשמפעילים את ערכת הנושא, התוסף מוסיף בלוק CSS לקובץ הסגנונות של Codex ומעתיק לידו את הגופנים. כשמכבים אותה, הבלוק יוצא והגופנים נמחקים, כך שהקובץ חוזר להיות בדיוק כמו שהיה. כל זה קורה שוב אחרי עדכון של Codex, בפעם הבאה שהחלון נפתח.</p>
+<p class="_Paragraph_16avx_2" dir="auto">When the theme is on, the extension appends a CSS block to the stylesheet of Codex and copies the fonts next to it. When it is off, the block comes out and the fonts are deleted, so the file is exactly as it was. All of this happens again after a Codex update, the next time the window opens.</p>
+<p class="_Paragraph_16avx_2" dir="auto">בדיקת התקינות קוראת את כל קובצי ה־CSS של Codex, אחד אחרי השני, ומחפשת בהם את כל המשתנים והמחלקות שהבלוקים צריכים. אם משהו חסר, מופיעה אזהרה אחת לכל גרסה של Codex, והעיצוב נשאר במקומו בינתיים, עד שהתוסף יתעדכן.</p>
+<p class="_Paragraph_16avx_2" dir="auto">The health check reads every CSS file of Codex, one at a time, and looks for each variable and class the blocks need. If one is missing, a single warning shows for that version of Codex, and the styles stay in place meanwhile, until the extension is updated.</p>
+</div>
+
 <div class="flex w-full flex-col items-end" id="user-row">
 <div data-user-message-bubble="true" class="bg-user-message text-user-message min-w-0 max-w-(--user-chat-width) overflow-hidden break-words px-(--thread-content-margin) [&amp;_.contain-inline-size]:[contain:initial] _bubble_168sz_1 py-2.5 rounded-2xl relative text-start" id="bubble">
 <div class="relative w-full min-w-0 text-size-chat leading-relaxed">
@@ -112,6 +119,7 @@ document.fonts.ready.then(async () => {
     looseEnLeft: Math.round(textRect('#loose-en-p').left - rect('#loose-en').left),
     looseHeRight: Math.round(rect('#loose-he').right - textRect('#loose-he-p').right),
     looseSecondBelow: Math.round(rect('#loose-he-p2').top - textRect('#loose-he-p').bottom),
+    wrappedLines: [...document.querySelectorAll('#wrapped p')].map((p) => Math.round(p.getBoundingClientRect().height / parseFloat(getComputedStyle(p).lineHeight))),
   };
   q('#editor').focus();
   report.composerFocused = cs('#composer').boxShadow;
