@@ -97,7 +97,7 @@ Which element carries which class in a live conversation is not known here. The 
 The script is a plain JS file shipped in the VSIX as `diagnostics/codex.js` (`scripts/` is not packaged). It is meant to be pasted into the Codex webview's DevTools console: run **Developer: Open Webview Developer Tools** and type `allow pasting` before the first paste. The script:
 
 - finds the Codex document: the current frame, or a same-origin child frame, whichever root has `data-codex-window-type`. When it finds none, it says to pick the `active-frame` context in the console;
-- reads only structure and computed styles, never text, attribute values (other than class names) or file names;
+- reads only structure and computed styles, never message text or anything from the user's files: the report holds class and data-attribute names, the page's window type and theme kind, computed styles and the names of Codex's own stylesheets *(changed during execution)*;
 - reports:
   - the theme kind;
   - whether each block is active. Theme is active when the chat font size override is 15px; RTL is active when a markdown paragraph has `unicode-bidi: plaintext`;
