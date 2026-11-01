@@ -1369,6 +1369,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 The fixture page reproduces what Codex 26.51021 renders, with its real class strings:
 - your message: the `user-message-bubble` component, holding the `user-formatted-text` markdown;
+- four long paragraphs (Hebrew, English, Hebrew, English) that wrap, for the diagnostics' side of a wrapped paragraph *(added during execution, Task 4 review)*;
 - an answer: the markdown root and its default components (`presentation-components`: `p`, `h2`, `ul`/`li`, all with `dir="auto"`; code with `dir="ltr"`), with a tight list and a loose one (its items hold paragraphs);
 - the composer: `composer-layout`, the `prompt-editor`'s `_RichTextInput_` wrapper and a ProseMirror editor, and the send button's `bg-composer-primary text-composer-primary`.
 
@@ -1470,9 +1471,9 @@ Expected: PASS.
 ```js
 // BiDi RTL & Theme: a report on how the extension's blocks apply in the Codex panel, for its
 // DevTools console. Click in the Codex panel, run "Developer: Open Webview Developer Tools", open
-// the Console, type "allow pasting" the first time, then paste this and press Enter. It reads only
-// the page's structure and computed styles, never message text or anything from your files: the
-// report holds class and data-attribute names, the page's window type and theme kind, computed
+// the Console, type "allow pasting" the first time, then paste this and press Enter. It reads the
+// page's structure and computed styles and never exports message text or anything from your files:
+// the report holds class and data-attribute names, the page's window type and theme kind, computed
 // styles, and the names of Codex's own stylesheets. It goes to the clipboard as JSON.
 (function bidiCodexDiagnostics() {
   'use strict';
@@ -1538,17 +1539,32 @@ Expected: PASS.
   const style = (el) => view.getComputedStyle(el);
   const classes = (el) => (typeof el.className === 'string' ? el.className.split(/\s+/).filter(Boolean) : []);
   const attributeNames = (el) => el.getAttributeNames().filter((name) => name === 'dir' || name.startsWith('data-'));
-  // Which side of its box the text sits on, measured from its rendered lines.
+  // Which side of its box the text sits on, judged on its shortest rendered line: a full line can
+  // fill the box and say nothing about the side.
   const side = (el) => {
     const range = doc.createRange();
     range.selectNodeContents(el);
-    const text = range.getBoundingClientRect();
-    if (text.width === 0) {
+    const lines = [];
+    for (const rect of range.getClientRects()) {
+      if (rect.width === 0) {
+        continue;
+      }
+      const middle = (rect.top + rect.bottom) / 2;
+      const line = lines.find((l) => middle >= l.top && middle <= l.bottom);
+      if (line) {
+        line.left = Math.min(line.left, rect.left);
+        line.right = Math.max(line.right, rect.right);
+      } else {
+        lines.push({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
+      }
+    }
+    if (lines.length === 0) {
       return 'empty';
     }
+    const shortest = lines.reduce((a, b) => (b.right - b.left < a.right - a.left ? b : a));
     const box = el.getBoundingClientRect();
-    const left = text.left - box.left;
-    const right = box.right - text.right;
+    const left = shortest.left - box.left;
+    const right = box.right - shortest.right;
     return Math.abs(left - right) < 2 ? 'center' : left < right ? 'left' : 'right';
   };
   const sample = (el) => {
@@ -1644,6 +1660,13 @@ html,body{margin:0}
 <div id="root">
 <div class="flex flex-col gap-6">
 
+<div dir="auto" class="_MarkdownRoot_16avx_2 [&amp;&gt;*:first-child]:mt-0 [&amp;&gt;*:last-child]:mb-0" id="wrapped">
+<p class="_Paragraph_16avx_2" dir="auto">כשמפעילים את ערכת הנושא, התוסף מוסיף בלוק CSS לקובץ הסגנונות של Codex ומעתיק לידו את הגופנים. כשמכבים אותה, הבלוק יוצא והגופנים נמחקים, כך שהקובץ חוזר להיות בדיוק כמו שהיה. כל זה קורה שוב אחרי עדכון של Codex, בפעם הבאה שהחלון נפתח.</p>
+<p class="_Paragraph_16avx_2" dir="auto">When the theme is on, the extension appends a CSS block to the stylesheet of Codex and copies the fonts next to it. When it is off, the block comes out and the fonts are deleted, so the file is exactly as it was. All of this happens again after a Codex update, the next time the window opens.</p>
+<p class="_Paragraph_16avx_2" dir="auto">בדיקת התקינות קוראת את כל קובצי ה־CSS של Codex, אחד אחרי השני, ומחפשת בהם את כל המשתנים והמחלקות שהבלוקים צריכים. אם משהו חסר, מופיעה אזהרה אחת לכל גרסה של Codex, והעיצוב נשאר במקומו בינתיים, עד שהתוסף יתעדכן.</p>
+<p class="_Paragraph_16avx_2" dir="auto">The health check reads every CSS file of Codex, one at a time, and looks for each variable and class the blocks need. If one is missing, a single warning shows for that version of Codex, and the styles stay in place meanwhile, until the extension is updated.</p>
+</div>
+
 <div class="flex w-full flex-col items-end" id="user-row">
 <div data-user-message-bubble="true" class="bg-user-message text-user-message min-w-0 max-w-(--user-chat-width) overflow-hidden break-words px-(--thread-content-margin) [&amp;_.contain-inline-size]:[contain:initial] _bubble_168sz_1 py-2.5 rounded-2xl relative text-start" id="bubble">
 <div class="relative w-full min-w-0 text-size-chat leading-relaxed">
@@ -1731,6 +1754,7 @@ document.fonts.ready.then(async () => {
     looseEnLeft: Math.round(textRect('#loose-en-p').left - rect('#loose-en').left),
     looseHeRight: Math.round(rect('#loose-he').right - textRect('#loose-he-p').right),
     looseSecondBelow: Math.round(rect('#loose-he-p2').top - textRect('#loose-he-p').bottom),
+    wrappedLines: [...document.querySelectorAll('#wrapped p')].map((p) => Math.round(p.getBoundingClientRect().height / parseFloat(getComputedStyle(p).lineHeight))),
   };
   q('#editor').focus();
   report.composerFocused = cs('#composer').boxShadow;
@@ -1768,7 +1792,7 @@ const SIZE = '900,1100';
 // The CSS chunks Codex loads with a conversation, by name: their file names end in a hash.
 const CHUNKS = ['markdown', 'user-message-bubble', 'user-formatted-text', 'composer-layout', 'prompt-editor', 'prosemirror', 'composer-content'];
 // Text the page shows. The diagnostics report must hold none of it.
-const PAGE_TEXT = ['syncInstall', 'README', 'uninstall', 'הפונקציה', 'Fonts first', 'ואז'];
+const PAGE_TEXT = ['syncInstall', 'README', 'uninstall', 'הפונקציה', 'Fonts first', 'ואז', 'appends', 'התקינות'];
 const USAGE = `usage: node scripts/render-codex-fixture.js <codex-extension-dir> [out-dir]
 e.g. node scripts/render-codex-fixture.js ~/.vscode/extensions/openai.chatgpt-26.51021.22027-darwin-arm64
 Chrome: ${CHROME} (set CHROME_PATH to use another)`;
@@ -1808,6 +1832,11 @@ function check(mode, r) {
   expect(
     d.samples && d.samples.paragraph.some((s) => s.firstStrong === 'rtl' && s.side === 'right'),
     `diagnostics: no Hebrew paragraph on the right in ${JSON.stringify(d.samples && d.samples.paragraph)}`
+  );
+  const wrapped = d.samples ? d.samples.paragraph.slice(0, 4).map((s) => `${s.firstStrong}:${s.side}`).join(' ') : '';
+  expect(
+    r.wrappedLines.every((lines) => lines >= 2) && wrapped === 'rtl:right ltr:left rtl:right ltr:left',
+    `diagnostics: the wrapped paragraphs (${r.wrappedLines.join(', ')} lines) read ${wrapped} (want rtl:right ltr:left rtl:right ltr:left)`
   );
   const leaked = PAGE_TEXT.filter((text) => JSON.stringify(d).includes(text));
   expect(leaked.length === 0, `diagnostics: the report holds the page's text: ${leaked.join(', ')}`);
@@ -1952,7 +1981,7 @@ screenshots: …/fixture-out
 ```
 
 Then look at `fixture-out/codex-fixture-dark.png` and `fixture-out/codex-fixture-light.png`:
-- Dark: a warm brown panel in Rubik. Your message is a full-width block with an orange bar on the right; its Hebrew line is on the right and its English line on the left. The Hebrew heading and paragraph are on the right and the English paragraph on the left. The bullets of both lists are orange, each beside its item's text on that item's side, one line per item (the loose list's second Hebrew paragraph sits under its first). The code line is on the left. The composer is rounded, with an orange ring (the page focuses it), its Hebrew line on the right and its English line on the left, and an orange send button.
+- Dark: a warm brown panel in Rubik. Four wrapped paragraphs at the top: the Hebrew ones on the right, the English ones on the left. Your message is a full-width block with an orange bar on the right; its Hebrew line is on the right and its English line on the left. The Hebrew heading and paragraph are on the right and the English paragraph on the left. The bullets of both lists are orange, each beside its item's text on that item's side, one line per item (the loose list's second Hebrew paragraph sits under its first). The code line is on the left. The composer is rounded, with an orange ring (the page focuses it), its Hebrew line on the right and its English line on the left, and an orange send button.
 - Light: Codex's own look, with the same direction per line.
 
 A failing check names the value it got. The prototype measured every expected value against this Codex (26.51021), so a failure most likely means a step here was copied differently. Compare the two files before changing a value.

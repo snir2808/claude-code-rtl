@@ -97,14 +97,14 @@ Which element carries which class in a live conversation is not known here. The 
 The script is a plain JS file shipped in the VSIX as `diagnostics/codex.js` (`scripts/` is not packaged). It is meant to be pasted into the Codex webview's DevTools console: run **Developer: Open Webview Developer Tools** and type `allow pasting` before the first paste. The script:
 
 - finds the Codex document: the current frame, or a same-origin child frame, whichever root has `data-codex-window-type`. When it finds none, it says to pick the `active-frame` context in the console;
-- reads only structure and computed styles, never message text or anything from the user's files: the report holds class and data-attribute names, the page's window type and theme kind, computed styles and the names of Codex's own stylesheets *(changed during execution)*;
+- reads the page's structure and computed styles and never exports message text or anything from the user's files: the report holds class and data-attribute names, the page's window type and theme kind, computed styles and the names of Codex's own stylesheets *(changed during execution)*;
 - reports:
   - the theme kind;
   - whether each block is active. Theme is active when the chat font size override is 15px; RTL is active when a markdown paragraph has `unicode-bidi: plaintext`;
   - BiDi Rubik's status in `document.fonts`;
   - how many elements each hook matches;
   - for up to 10 each of the paragraphs (yours and Codex's), headings, list items and composer lines: the direction of the first strong character (computed in place, never exported), and the computed direction, unicode-bidi, text-align, first font and size;
-  - which side of its box each sample's text sits on;
+  - which side of its box each sample's text sits on, judged on its shortest line *(changed during execution)*;
   - the class lists of the markdown root, the user message, the composer, its editor and the first code block, and of their ancestors up to 4 levels;
   - the names of the loaded stylesheets;
 - copies the report as JSON with DevTools' `copy()` and prints a short summary.
