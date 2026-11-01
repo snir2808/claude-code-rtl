@@ -1,0 +1,125 @@
+<!doctype html>
+<!-- The Codex fixture. scripts/render-codex-fixture.js serves it twice against Codex's real CSS,
+     the main stylesheet with both Codex blocks synced and then the conversation's CSS chunks: with
+     the body marked vscode-dark, and vscode-light to check that none of the theme applies there
+     (RTL applies in every theme). Both pages keep the Dark Modern values that VS Code writes inline
+     on <html>, so the light page checks the theme's scoping only, not how a light theme looks. The
+     markup follows Codex 26.51021's components: your message (user-message-bubble and
+     user-formatted-text), an answer through the markdown renderer's default components, secondary
+     text, a bordered box, and the composer (composer-layout, prompt-editor, ProseMirror) with its
+     send button. Every class here must exist in that CSS (the script checks). -->
+<html lang="en" data-codex-window-type="extension" style="--vscode-font-family:-apple-system, BlinkMacSystemFont, sans-serif;--vscode-font-size:13px;--vscode-font-weight:normal;--vscode-editor-font-family:Menlo, Monaco, 'Courier New', monospace;--vscode-editor-font-size:12px;--vscode-editor-font-weight:normal;--vscode-foreground:#cccccc;--vscode-descriptionForeground:#9d9d9d;--vscode-disabledForeground:#cccccc80;--vscode-icon-foreground:#cccccc;--vscode-focusBorder:#0078d4;--vscode-widget-border:#313131;--vscode-sideBar-background:#181818;--vscode-editor-background:#1f1f1f;--vscode-panel-background:#181818;--vscode-editorWidget-background:#202020;--vscode-input-background:#313131;--vscode-input-foreground:#cccccc;--vscode-input-border:#3c3c3c;--vscode-input-placeholderForeground:#989898;--vscode-dropdown-background:#313131;--vscode-dropdown-foreground:#cccccc;--vscode-dropdown-border:#3c3c3c;--vscode-menu-background:#1f1f1f;--vscode-menu-foreground:#cccccc;--vscode-menu-selectionBackground:#0078d4;--vscode-menu-selectionForeground:#ffffff;--vscode-menu-border:#454545;--vscode-menu-separatorBackground:#454545;--vscode-list-hoverBackground:#2a2d2e;--vscode-list-activeSelectionBackground:#04395e;--vscode-list-activeSelectionForeground:#ffffff;--vscode-list-inactiveSelectionBackground:#37373d;--vscode-toolbar-hoverBackground:#5a5d5e50;--vscode-toolbar-activeBackground:#63666750;--vscode-button-background:#0078d4;--vscode-button-foreground:#ffffff;--vscode-button-hoverBackground:#026ec1;--vscode-button-secondaryBackground:#313131;--vscode-button-secondaryForeground:#cccccc;--vscode-button-secondaryHoverBackground:#3c3c3c;--vscode-badge-background:#616161;--vscode-badge-foreground:#f8f8f8;--vscode-textLink-foreground:#4daafc;--vscode-textLink-activeForeground:#4daafc;--vscode-textPreformat-foreground:#d0d0d0;--vscode-textPreformat-background:#3c3c3c;--vscode-textCodeBlock-background:#2b2b2b;--vscode-textBlockQuote-background:#2b2b2b;--vscode-textBlockQuote-border:#616161;--vscode-textSeparator-foreground:#21262d;--vscode-terminal-background:#181818;--vscode-terminal-foreground:#cccccc;">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="app-initial.css">
+__CHUNKS__
+<style>
+/* Fixture only: the page is the Codex side bar, with some room around the thread, and the send
+   button gets the size its own utility classes give it in Codex. */
+html,body{margin:0}
+#root{padding:16px}
+#send{width:36px;height:36px}
+</style>
+</head>
+<body class="__THEME_KIND__" data-vscode-theme-kind="__THEME_KIND__">
+<div id="root">
+<div class="flex flex-col gap-6">
+
+<div class="flex w-full flex-col items-end" id="user-row">
+<div data-user-message-bubble="true" class="bg-user-message text-user-message min-w-0 max-w-(--user-chat-width) overflow-hidden break-words px-(--thread-content-margin) [&amp;_.contain-inline-size]:[contain:initial] _bubble_168sz_1 py-2.5 rounded-2xl relative text-start" id="bubble">
+<div class="relative w-full min-w-0 text-size-chat leading-relaxed">
+<div dir="auto" data-markdown-text-tone="user-message" class="_MarkdownRoot_16avx_2 [&amp;&gt;*:first-child]:mt-0 [&amp;&gt;*:last-child]:mb-0 text-size-chat whitespace-pre-wrap [&amp;_ol]:!ps-6 [&amp;_ul]:!ps-6 rich-text-user-turn [&amp;&gt;p]:!m-0 [&amp;&gt;p+p]:!mt-5"><p class="_Paragraph_16avx_2" dir="auto" id="user-p"><span id="user-he">תבדוק בבקשה את הפונקציה syncInstall</span>
+<span id="user-en">Then check the README in English</span></p></div>
+</div>
+</div>
+</div>
+
+<div dir="auto" class="_MarkdownRoot_16avx_2 [&amp;&gt;*:first-child]:mt-0 [&amp;&gt;*:last-child]:mb-0" id="answer">
+<h2 class="_Heading_16avx_2" dir="auto" id="answer-h2">מה הפונקציה עושה</h2>
+<p class="_Paragraph_16avx_2" dir="auto" id="answer-he">הפונקציה מביאה את קובץ ה־CSS למצב שמתאים למודולים, ואז מעתיקה את <code class="_InlineCode_16avx_2" dir="ltr" id="inline-code">rubik.woff2</code> לתיקייה.</p>
+<p class="_Paragraph_16avx_2" dir="auto" id="answer-en">In short: fonts are copied before the CSS is written.</p>
+<ul class="_List_16avx_2 _UnorderedList_16avx_2" dir="auto"><li class="_ListItem_16avx_2" id="li-en">Fonts first</li><li class="_ListItem_16avx_2" id="li-he">ואז ה־CSS</li></ul>
+<ul class="_List_16avx_2 _UnorderedList_16avx_2" dir="auto"><li class="_ListItem_16avx_2" id="loose-en"><p class="_Paragraph_16avx_2" dir="auto" id="loose-en-p">Fonts first, then the CSS</p></li><li class="_ListItem_16avx_2" id="loose-he"><p class="_Paragraph_16avx_2" dir="auto" id="loose-he-p">ואז ה־CSS נכתב</p><p class="_Paragraph_16avx_2" dir="auto" id="loose-he-p2">ובסוף מוחקים גופנים שלא בשימוש</p></li></ul>
+<pre dir="ltr" id="code-block"><code>await syncInstall(dir, root, enabled);</code></pre>
+<p class="_Paragraph_16avx_2" dir="auto"><span class="text-secondary" id="secondary">Worked for 2m</span> <span class="text-tertiary" id="tertiary">2 files</span></p>
+<div class="border border-border rounded-lg p-2" id="bordered">box</div>
+</div>
+
+<div class="_ComposerLayoutRoot_1q7o3_2" data-composer-surface-variant="default" data-composer-radius-variant="default" data-composer-layout="multiline" id="composer">
+<div class="_ComposerLayoutBody_1q7o3_2">
+<div class="_ComposerLayoutInput_1q7o3_2" data-composer-layout="multiline">
+<div class="_RichTextInput_1ev2o_1 _composer_ilwj8_1 _composerTables_ilwj8_49 _composerHorizontalRules_x01ph_1" data-rich-text-layout="multiline">
+<div class="ProseMirror" contenteditable="true" data-composer-markdown="true" id="editor"><p id="editor-he">ובדוק גם את uninstall.ts</p><p id="editor-en">and the README</p></div>
+</div>
+</div>
+<div class="_ComposerLayoutFooter_1q7o3_2"><button class="bg-composer-primary text-composer-primary rounded-full" id="send">↑</button></div>
+</div>
+</div>
+
+</div>
+</div>
+<script>
+// Fixture only: measures what scripts/render-codex-fixture.js checks, then runs the diagnostics
+// script (served as codex-diagnostics.js) the way the DevTools Console would.
+document.fonts.ready.then(async () => {
+  const q = (s) => document.querySelector(s);
+  const cs = (s, pseudo) => getComputedStyle(q(s), pseudo);
+  const rect = (s) => q(s).getBoundingClientRect();
+  // Where an element's text starts and ends, from its rendered lines.
+  const textRect = (s) => {
+    const range = document.createRange();
+    range.selectNodeContents(q(s));
+    return range.getBoundingClientRect();
+  };
+  const report = {
+    fontsLoaded: [...document.fonts].filter((f) => f.family.replace(/"/g, '') === 'BiDi Rubik' && f.status === 'loaded').length,
+    bodyBg: getComputedStyle(document.body).backgroundColor,
+    textFont: cs('#answer-en').fontFamily,
+    textSize: cs('#answer-en').fontSize,
+    lineHeight: cs('#answer-en').lineHeight,
+    textColor: cs('#answer-en').color,
+    h2: `${cs('#answer-h2').fontSize} ${cs('#answer-h2').fontWeight} ${cs('#answer-h2').color}`,
+    marker: cs('#li-en', '::marker').color,
+    inlineCode: `${cs('#inline-code').backgroundColor} / ${cs('#inline-code').color}`,
+    inlineCodeDir: cs('#inline-code').direction,
+    codeDir: cs('#code-block').direction,
+    secondary: cs('#secondary').color,
+    tertiary: cs('#tertiary').color,
+    border: cs('#bordered').borderTopColor,
+    bubble: `${cs('#bubble').backgroundColor} ${cs('#bubble').color} ${cs('#bubble').borderTopLeftRadius} ${cs('#bubble').paddingTop} ${cs('#bubble').paddingLeft}`,
+    bubbleBar: `${cs('#bubble').borderRightWidth} ${cs('#bubble').borderRightStyle} ${cs('#bubble').borderRightColor}`,
+    bubbleBarLeft: cs('#bubble').borderLeftWidth,
+    bubbleDir: cs('#bubble').direction,
+    bubbleWidth: Math.round(rect('#bubble').width),
+    rowWidth: Math.round(rect('#user-row').width),
+    composer: `${cs('#composer').backgroundColor} ${cs('#composer').borderTopLeftRadius} ${cs('#composer').boxShadow}`,
+    editor: `${cs('#editor').fontSize} ${cs('#editor').lineHeight}`,
+    editorFont: cs('#editor').fontFamily,
+    send: `${cs('#send').backgroundColor} ${cs('#send').color}`,
+    paragraphBidi: cs('#answer-en').unicodeBidi,
+    answerHeRight: Math.round(rect('#answer-he').right - textRect('#answer-he').right),
+    answerEnLeft: Math.round(textRect('#answer-en').left - rect('#answer-en').left),
+    listPosition: cs('#li-he').listStylePosition,
+    listBidi: cs('#li-he').unicodeBidi,
+    listHeRight: Math.round(rect('#li-he').right - textRect('#li-he').right),
+    listEnLeft: Math.round(textRect('#li-en').left - rect('#li-en').left),
+    userHeRight: Math.round(rect('#user-p').right - textRect('#user-he').right),
+    userEnLeft: Math.round(textRect('#user-en').left - rect('#user-p').left),
+    editorHeRight: Math.round(rect('#editor-he').right - textRect('#editor-he').right),
+    editorEnLeft: Math.round(textRect('#editor-en').left - rect('#editor-en').left),
+    looseEnTop: Math.round(textRect('#loose-en-p').top - rect('#loose-en').top),
+    looseHeTop: Math.round(textRect('#loose-he-p').top - rect('#loose-he').top),
+    looseEnLeft: Math.round(textRect('#loose-en-p').left - rect('#loose-en').left),
+    looseHeRight: Math.round(rect('#loose-he').right - textRect('#loose-he-p').right),
+    looseSecondBelow: Math.round(rect('#loose-he-p2').top - textRect('#loose-he-p').bottom),
+  };
+  q('#editor').focus();
+  report.composerFocused = cs('#composer').boxShadow;
+  const code = await (await fetch('codex-diagnostics.js')).text();
+  // The script is one call expression: an indirect eval runs it as a classic script and returns its report.
+  report.diagnostics = (0, eval)(code);
+  document.body.setAttribute('data-report', JSON.stringify(report));
+});
+</script>
+</body>
+</html>

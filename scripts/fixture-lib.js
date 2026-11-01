@@ -15,7 +15,7 @@ const CHROME_FLAGS = ['--headless=new', '--disable-gpu', '--hide-scrollbars', '-
 const CHROME_TIMEOUT_MS = 20000;
 const CHROME_POLL_MS = 200;
 const PNG_END = Buffer.from('49454e44ae426082', 'hex'); // IEND chunk type + CRC: the last 8 bytes of every PNG
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.woff2': 'font/woff2' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.woff2': 'font/woff2', '.js': 'text/javascript' };
 
 function serve(dir) {
   const server = http.createServer((req, res) => {
@@ -145,17 +145,23 @@ function chrome(args, isDone, what) {
 }
 
 // The class names in a fixture page that the given CSS does not define: a sign that the fixture
-// no longer matches what the app renders. Placeholders like __THEME_CLASS__ are skipped.
+// no longer matches what the app renders. Placeholders like __THEME_CLASS__ are skipped. Class
+// lists are HTML-decoded, and each name is looked up the way CSS writes it, with a backslash
+// before every character other than a letter, a digit, _ or - (Tailwind names such as
+// max-w-(--user-chat-width) or [&>p]:!m-0).
 function missingClasses(page, css) {
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"' };
   const names = new Set();
   for (const [, list] of page.matchAll(/class="([^"]*)"/g)) {
-    for (const name of list.split(/\s+/)) {
+    for (const name of list.replace(/&(amp|lt|gt|quot);/g, (_, entity) => entities[entity]).split(/\s+/)) {
       if (name && !name.startsWith('__')) {
         names.add(name);
       }
     }
   }
-  const defined = (name) => new RegExp(`\\.${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(css);
+  const cssName = (name) => name.replace(/[^\w-]/g, '\\$&');
+  const defined = (name) =>
+    new RegExp(`\\.${cssName(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`).test(css);
   return [...names].filter((name) => !defined(name));
 }
 
