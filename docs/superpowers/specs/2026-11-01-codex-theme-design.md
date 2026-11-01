@@ -51,7 +51,7 @@ Checked on 2026-11-01 against the darwin-arm64 VSIX from the Marketplace (403 MB
   - about 290 `--color-token-*` values for inputs, buttons, menus, lists, editors and terminals.
 
   Some tokens name parts of the conversation directly: `--color-background-user-message`, `--color-text-user-message`, `--color-background-composer-primary` and `--color-text-composer-primary` (the send button). Borders and secondary text are mixes of the foreground (8% and 65%), unless the `--app-color-border` and `--app-color-text-secondary` hooks are set. `--color-background-execution-output` belongs to ChatGPT's Python analysis, not to Codex's commands; Codex draws command output with xterm in VS Code's terminal colors *(changed while planning)*.
-- **Fonts and sizes.** `--font-sans` resolves to `--font-ui-family`, which is VS Code's UI font in the extension. `--font-mono` resolves to `--font-code-family`, the editor font. The chat size is `--codex-chat-font-size: var(--codex-chat-font-size-override, var(--font-ui-size, 13px))`.
+- **Fonts and sizes.** `--font-sans` resolves to `--font-ui-family`, which is VS Code's UI font in the extension. `--font-mono` resolves to `--font-code-family`, the editor font. The chat size is `--codex-chat-font-size: var(--codex-chat-font-size-override, var(--font-ui-size, 13px))`. Codex's own script writes the override inline on `<html>` from VS Code's `chat.fontSize` setting (13px by default), and sets `data-theme` there too *(changed during execution, final review)*.
 - **Markup.** Mostly Tailwind utilities, plus CSS modules named `_<Name>_<hash>_<n>`. Like Claude Code's hashed names, these are matched with `[class*="_Name_"]`:
   - markdown: `_MarkdownRoot_`, `_Paragraph_`, `_Heading_`, `_List_`, `_OrderedList_`, `_UnorderedList_`, `_ListItem_`, `_Blockquote_`, `_TableCell_`, `_TableHeaderCell_`, `_CodeBlock_`, `_InlineCode_`;
   - the composer: `_ComposerLayoutRoot_` and `_RichTextInput_` around a ProseMirror editor (`.ProseMirror`, one `<p>` per line);
@@ -82,32 +82,33 @@ Which element carries which class in a live conversation is not known here. The 
 - **Finding the stylesheet:** take `vscode.extensions.getExtension('openai.chatgpt')?.extensionPath` and read its `webview/index.html`. The stylesheet is the `href` of the first `<link rel="stylesheet">`, resolved against `webview/`. It must stay inside `webview/` and exist; otherwise Codex counts as changed (see below) and is skipped.
 - **Sync:** the existing `syncCssFile` with the `codex` target. It runs on activation, on `extensions.onDidChange` (a Codex update brings a new folder) and on every toggle, through the same queue.
 - **Codex switch:** a globalState flag `bidiCodex.enabled` (default on) and the command `BiDi Codex: Toggle Codex Styling On/Off` (`bidi-codex.toggle`). Codex receives the enabled modules only while the switch is on. Turning it off strips both Codex blocks and the fonts. The Theme and RTL flags and the other targets are not affected.
-- **Apply:** a change to Codex alone offers Reload Window. When the Copilot chat changed in the same sync, the existing Quit/Reload prompt applies.
+- **Apply:** a sync that changes only Codex (when a window starts, or a toggle) offers Reload Window, not Quit. When the Copilot chat changed in the same sync, the existing Quit/Reload prompt applies. A Codex update seen through `extensions.onDidChange` syncs silently, as a Claude Code update does *(changed during execution, final review)*.
 - **Missing Codex:** skipped silently, like the other targets. The "nothing to change" warning, shown when a toggle finds no target at all, names all three.
-- **Layout changes:** when `index.html` has no usable stylesheet link, Codex is skipped and a warning shows once per Codex version: Codex `<version>` changed its layout, so it cannot be styled.
+- **Layout changes:** when `index.html` has no usable stylesheet link, Codex is skipped and a warning says that Codex `<version>` changed its layout, so it cannot be styled. When a window starts or Codex updates, the warning shows once per Codex version and is then only logged. A toggle that tries to style Codex shows it every time, so the switch never fails silently *(changed during execution, final review)*.
 - **Write errors:** reported as for Claude Code.
 - **Health check:** while the theme is on, the check runs once per Codex version. It verifies that every hook the Codex blocks rely on still appears in Codex's CSS files (`webview/assets/*.css`, about 3 MB). The hooks are the tokens and class names listed under the CSS rules below; each must appear in CSS, so the user message is matched as `.bg-user-message[class*="_bubble_"]` (its `data-user-message-bubble` attribute appears only in JS) *(changed while planning)*. A missing hook gives one warning per Codex version, kept under its own globalState key. The theme stays applied.
 - **Uninstall:** the hook also cleans every `openai.chatgpt-*` folder in the extensions root (blocks stripped, fonts deleted), as it does for `anthropic.claude-code-*`. A folder that fails does not stop the others.
 - **Status bar:** the Theme and RTL tooltips name everything they control: Claude Code, Copilot and Codex.
-- **Diagnostics:** `BiDi Codex: Copy Diagnostics Script` (`bidi-codex.copyDiagnostics`) copies the script below to the clipboard and shows the steps to run it.
+- **Diagnostics:** `BiDi Codex: Copy Diagnostics Script` (`bidi-codex.copyDiagnostics`) copies the script below to the clipboard and shows the steps to run it, including which console context to pick *(changed during execution, final review)*.
 - **Identity:** version 0.3.0. `displayName` becomes "BiDi RTL & Theme for Claude Code, Copilot and Codex", and the description names Codex. The README gains a Codex section.
 
 ### Diagnostics script
 
 The script is a plain JS file shipped in the VSIX as `diagnostics/codex.js` (`scripts/` is not packaged). It is meant to be pasted into the Codex webview's DevTools console: run **Developer: Open Webview Developer Tools** and type `allow pasting` before the first paste. The script:
 
-- finds the Codex document: the current frame, or a same-origin child frame, whichever root has `data-codex-window-type`. When it finds none, it says to pick the `active-frame` context in the console;
+- finds the Codex document: the current frame, or a same-origin child frame, whichever root has `data-codex-window-type`. When it finds none, it says to pick the `active-frame` context in the console, trying each when there are several *(changed during execution, final review)*;
 - reads the page's structure and computed styles and never exports message text or anything from the user's files: the report holds class and data-attribute names, the page's window type and theme kind, computed styles and the names of Codex's own stylesheets *(changed during execution)*;
 - reports:
   - the theme kind;
-  - whether each block is active. Theme is active when the chat font size override is 15px; RTL is active when a markdown paragraph has `unicode-bidi: plaintext`;
+  - whether each block is active. Theme is active when the side bar background is the theme's `#1b1a18` (the chat size cannot tell, since Codex's own script writes it) *(changed during execution, final review)*; RTL is active when a markdown paragraph has `unicode-bidi: plaintext`;
   - BiDi Rubik's status in `document.fonts`;
+  - the chat size, and the size Codex's own script wrote on `<html>` *(changed during execution, final review)*;
   - how many elements each hook matches;
   - for up to 10 each of the paragraphs (yours and Codex's), headings, list items and composer lines: the direction of the first strong character (computed in place, never exported), and the computed direction, unicode-bidi, text-align, first font and size;
   - which side of its box each sample's text sits on, judged on its shortest line *(changed during execution)*;
   - the class lists of the markdown root, the user message, the composer, its editor and the first code block, and of their ancestors up to 4 levels;
   - the names of the loaded stylesheets;
-- copies the report as JSON with DevTools' `copy()` and prints a short summary.
+- prints a one-line summary (theme, RTL, Rubik, chat size) and copies the report as JSON with DevTools' `copy()` *(changed during execution, final review)*.
 
 ---
 
@@ -121,7 +122,7 @@ Every selector starts with `body.vscode-dark` or, for the palette on `<html>`, w
 
 **Palette** *(changed while planning)*. The warm values go where the colors come from:
 - **VS Code's colors,** `--vscode-*`, are redefined on `:root:has(>body.vscode-dark)`, with `!important` because VS Code writes them inline on `<html>`. Every Codex token derived from them, on `:root` and on `[data-theme]` elements, then follows, including the ones derived from other tokens.
-- **Codex's own tokens** that do not come from VS Code's colors are redefined on `:root:has(>body.vscode-dark)` and on its `[data-theme]` descendants. Codex declares them in `@layer theme`, which an unlayered rule outranks, so they need no `!important`.
+- **Codex's own tokens** that do not come from VS Code's colors are redefined on `:root:has(>body.vscode-dark)` and on its `[data-theme]` descendants. Codex declares them in `@layer theme`, which an unlayered rule outranks, so they need no `!important`, except the chat size, which Codex's own script also writes inline on `<html>` *(changed during execution, final review)*.
 - **The body** paints the panel background itself, since the webview's body is transparent over VS Code's side bar.
 
 | Role | Where it is set | Value |
@@ -144,7 +145,7 @@ Every selector starts with `body.vscode-dark` or, for the palette on `<html>`, w
 **Typography.**
 
 - `--font-ui-family: "BiDi Rubik", -apple-system, BlinkMacSystemFont, system-ui, sans-serif`, so the whole panel uses Rubik, with the same `@font-face` faces (Hebrew and Latin subsets) as the Claude theme.
-- `--codex-chat-font-size-override: 15px`.
+- `--codex-chat-font-size-override: 15px`, with `!important`, since Codex's own script writes it inline on `<html>` from VS Code's `chat.fontSize` *(changed during execution, final review)*.
 - Code keeps the editor font.
 - Markdown line height 1.75, through Codex's `--markdown-line-height`; headings 20/18/16px, weight 600, `#f5f0e8`; list markers `#d97757`.
 
@@ -182,7 +183,7 @@ Unit tests enforce these rules, as for the other targets.
   - plain elements.
 
   Tailwind layout utilities such as `px-2` or `rounded-2xl` are not allowed. Codex's own custom properties that the files set or read count as hooks too (`--vscode-*` ones do not: they are VS Code's). The health check's hook list must be exactly the hooks the two files use; a coverage test checks both directions.
-- **`!important`:** only on the `--vscode-*` colors of the palette rule, which VS Code writes inline on `<html>` *(changed while planning)*.
+- **`!important`:** only on what VS Code and Codex write inline on `<html>`: the `--vscode-*` colors of the palette rule *(changed while planning)* and the chat size in the Codex-token rule *(changed during execution, final review)*.
 
 ---
 
@@ -209,12 +210,14 @@ Unit tests enforce these rules, as for the other targets.
   - one toggle updates all three targets;
   - a Codex-only change offers Reload, not Quit;
   - the Codex switch command works;
+  - a Codex that links no stylesheet is reported once per Codex version when a window starts, and every time a toggle tries to style it *(changed during execution, final review)*;
   - the diagnostics command copies the script.
 
 ### Visual fixture (`npm run fixture:codex -- <unpacked Codex extension>`)
 
 - **The page:**
   - `<html data-codex-window-type="extension">` and `<body class="vscode-dark" data-vscode-theme-kind="vscode-dark">`, with VS Code's Dark Modern `--vscode-*` values;
+  - on `<html>`, what Codex's own script writes there: `data-theme`, and the chat size from `chat.fontSize` at its 13px default, which the theme must outrank *(changed during execution, final review)*;
   - Codex's real `app-initial` stylesheet, plus the CSS modules the conversation loads (markdown, user message bubble, user text, composer layout, prompt editor, ProseMirror, composer content), found in `assets/` by name prefix;
   - the synced blocks.
 - **The DOM,** reproduced from Codex's component code with its real class strings:
@@ -226,7 +229,7 @@ Unit tests enforce these rules, as for the other targets.
   Command output is drawn by xterm in Codex, so the fixture cannot show it *(changed while planning)*.
 - **Checks:**
   - palette values, borders and secondary text;
-  - Rubik at 15px in messages, 18px in the composer;
+  - Rubik at 15px in messages (over Codex's inline 13px), 18px in the composer;
   - the user block at full width with its accent bar on the right;
   - the composer's ring, and its focus color;
   - alignment per paragraph and per line;

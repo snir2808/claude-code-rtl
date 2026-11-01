@@ -75,7 +75,7 @@
 
 - Typography:
   - `--font-ui-family: "BiDi Rubik",-apple-system,BlinkMacSystemFont,system-ui,sans-serif`, so the whole panel uses Rubik.
-  - `--codex-chat-font-size-override: 15px`.
+  - `--codex-chat-font-size-override: 15px`, with `!important`: Codex's own script writes it inline on `<html>` from VS Code's `chat.fontSize` (13px by default) *(changed during execution, final review)*.
   - Markdown: line height 1.75 through `--markdown-line-height`; headings h1/h2/h3 20/18/16px, weight 600, `#f5f0e8`; list markers `#d97757`.
   - The composer's text: 18px, line height 1.5.
   - Code keeps the editor font.
@@ -838,6 +838,8 @@ and append to the end of the file:
 const DARK = 'body.vscode-dark';
 /** <html>, in dark themes: where VS Code writes its colors inline. */
 const DARK_ROOT = ':root:has(>body.vscode-dark)';
+/** Codex tokens that Codex's own script also writes inline on <html> (the chat size, from VS Code's chat.fontSize). */
+const INLINE_CODEX_TOKENS: readonly string[] = ['--codex-chat-font-size-override'];
 
 suite('codex-theme.css — rules', () => {
   let css: string;
@@ -877,7 +879,7 @@ suite('codex-theme.css — rules', () => {
     }
   });
 
-  test("!important only on the --vscode-* colors, which VS Code writes inline on <html>", () => {
+  test('!important only on what VS Code and Codex write inline on <html>: the --vscode-* colors and the chat size', () => {
     for (const rule of rules) {
       for (const declaration of rule.body.split(';').map((d) => d.trim()).filter(Boolean)) {
         const property = declaration.slice(0, declaration.indexOf(':')).trim();
@@ -885,11 +887,18 @@ suite('codex-theme.css — rules', () => {
         if (property.startsWith('--vscode-')) {
           assert.strictEqual(rule.prelude, DARK_ROOT, `${property} outside the palette rule`);
           assert.ok(important, `${property} needs !important to outrank VS Code's inline style`);
+        } else if (INLINE_CODEX_TOKENS.includes(property)) {
+          assert.strictEqual(splitSelectors(rule.prelude)[0], DARK_ROOT, `${property} outside the token rule`);
+          assert.ok(important, `${property} needs !important to outrank Codex's inline style`);
         } else {
           assert.ok(!important, `!important on ${property} in "${rule.prelude}"`);
         }
       }
     }
+    assert.ok(
+      rules.some((r) => /--codex-chat-font-size-override\s*:\s*15px\s*!\s*important/.test(r.body)),
+      'the chat size is not forced to 15px'
+    );
   });
 
   test('the palette redefines the VS Code colors Codex paints the panel with', () => {
@@ -1182,7 +1191,8 @@ export function formatCodexHealthWarning(version: string, report: CodexHealthRep
    ([class*="_Name_"]: the class names carry a build hash) and a few semantic
    classes. Rules (enforced by src/test/codex-css.test.ts): every selector
    starts with body.vscode-dark or :root:has(>body.vscode-dark), only
-   @font-face at top level, !important only on the --vscode-* colors, and no
+   @font-face at top level, !important only on what VS Code and Codex write
+   inline on <html> (the --vscode-* colors and the chat size), and no
    direction, text-align or unicode-bidi (those belong to css/codex-rtl.css).
    The font files sit next to Codex's stylesheet. */
 
@@ -1259,11 +1269,12 @@ unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+
 /* Codex's own tokens. Codex declares them on :root and again on [data-theme]
    elements, in its theme layer, which an unlayered rule outranks. Without
    the two --app-color hooks, borders and secondary text are mixes of the
-   text color. */
+   text color. The chat size needs !important: Codex's own script writes it
+   inline on <html> from VS Code's chat.fontSize setting (13px by default). */
 :root:has(>body.vscode-dark),
 :root:has(>body.vscode-dark) [data-theme]{
 --font-ui-family:"BiDi Rubik",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
---codex-chat-font-size-override:15px;
+--codex-chat-font-size-override:15px!important;
 --app-color-border:#3b362f;
 --app-color-text-secondary:#a39d92;
 --color-background-user-message:#262320;
@@ -1530,7 +1541,7 @@ Expected: PASS.
   const doc = codexDocument();
   if (!doc) {
     const message =
-      'BiDi: no Codex page in this frame. Pick "active-frame" in the Console\'s context menu (top left), then run this again.';
+      'BiDi: no Codex page in this frame. Pick "active-frame" in the Console\'s context menu (top left; with several, try each), then run this again.';
     console.warn(message);
     return { error: message };
   }
@@ -1609,20 +1620,30 @@ Expected: PASS.
     windowType: root.getAttribute('data-codex-window-type'),
     themeKind: doc.body.getAttribute('data-vscode-theme-kind'),
     blocks: {
-      theme: rootStyle.getPropertyValue('--codex-chat-font-size-override').trim() === '15px',
+      // A color only the theme block sets: Codex's own script writes the chat size, so that can't tell.
+      theme: rootStyle.getPropertyValue('--vscode-sideBar-background').trim().toLowerCase() === '#1b1a18',
       rtl: paragraph ? style(paragraph).unicodeBidi === 'plaintext' : null,
     },
     rubik: [...doc.fonts].filter((f) => f.family.replace(/"/g, '') === 'BiDi Rubik').map((f) => f.status),
     chatFontSize: rootStyle.getPropertyValue('--codex-chat-font-size').trim(),
+    // What Codex's own script wrote on <html>, from VS Code's chat.fontSize.
+    chatFontSizeInline: root.style.getPropertyValue('--codex-chat-font-size-override').trim(),
     counts,
     samples,
     containers,
     stylesheets: [...doc.styleSheets].map((sheet) => (sheet.href ? sheet.href.split(/[?#]/)[0].split('/').pop() : 'inline')),
   };
   const json = JSON.stringify(report, null, 2);
+  const summary = [
+    `theme ${report.blocks.theme ? 'on' : 'off'}`,
+    `RTL ${report.blocks.rtl === null ? 'not seen yet' : report.blocks.rtl ? 'on' : 'off'}`,
+    `Rubik ${report.rubik.length === 0 ? 'missing' : report.rubik.join('/')}`,
+    `chat ${report.chatFontSize || '?'}`,
+  ].join(' · ');
+  console.log(`BiDi Codex: ${summary}`);
   if (typeof copy === 'function') {
     copy(json); // the DevTools Console's own helper
-    console.log('BiDi: the Codex report is on the clipboard. Paste it into a message to yourself.');
+    console.log('BiDi: the Codex report is on the clipboard.');
   } else {
     console.log(json);
   }
@@ -1638,12 +1659,14 @@ Expected: PASS.
      the main stylesheet with both Codex blocks synced and then the conversation's CSS chunks: with
      the body marked vscode-dark, and vscode-light to check that none of the theme applies there
      (RTL applies in every theme). Both pages keep the Dark Modern values that VS Code writes inline
-     on <html>, so the light page checks the theme's scoping only, not how a light theme looks. The
-     markup follows Codex 26.51021's components: your message (user-message-bubble and
+     on <html>, so the light page checks the theme's scoping only, not how a light theme looks.
+     <html> also carries what Codex's own script writes there at runtime: data-theme, and the chat
+     size from VS Code's chat.fontSize (13px by default), which the theme must outrank. The markup
+     follows Codex 26.51021's components: your message (user-message-bubble and
      user-formatted-text), an answer through the markdown renderer's default components, secondary
      text, a bordered box, and the composer (composer-layout, prompt-editor, ProseMirror) with its
      send button. Every class here must exist in that CSS (the script checks). -->
-<html lang="en" data-codex-window-type="extension" style="--vscode-font-family:-apple-system, BlinkMacSystemFont, sans-serif;--vscode-font-size:13px;--vscode-font-weight:normal;--vscode-editor-font-family:Menlo, Monaco, 'Courier New', monospace;--vscode-editor-font-size:12px;--vscode-editor-font-weight:normal;--vscode-foreground:#cccccc;--vscode-descriptionForeground:#9d9d9d;--vscode-disabledForeground:#cccccc80;--vscode-icon-foreground:#cccccc;--vscode-focusBorder:#0078d4;--vscode-widget-border:#313131;--vscode-sideBar-background:#181818;--vscode-editor-background:#1f1f1f;--vscode-panel-background:#181818;--vscode-editorWidget-background:#202020;--vscode-input-background:#313131;--vscode-input-foreground:#cccccc;--vscode-input-border:#3c3c3c;--vscode-input-placeholderForeground:#989898;--vscode-dropdown-background:#313131;--vscode-dropdown-foreground:#cccccc;--vscode-dropdown-border:#3c3c3c;--vscode-menu-background:#1f1f1f;--vscode-menu-foreground:#cccccc;--vscode-menu-selectionBackground:#0078d4;--vscode-menu-selectionForeground:#ffffff;--vscode-menu-border:#454545;--vscode-menu-separatorBackground:#454545;--vscode-list-hoverBackground:#2a2d2e;--vscode-list-activeSelectionBackground:#04395e;--vscode-list-activeSelectionForeground:#ffffff;--vscode-list-inactiveSelectionBackground:#37373d;--vscode-toolbar-hoverBackground:#5a5d5e50;--vscode-toolbar-activeBackground:#63666750;--vscode-button-background:#0078d4;--vscode-button-foreground:#ffffff;--vscode-button-hoverBackground:#026ec1;--vscode-button-secondaryBackground:#313131;--vscode-button-secondaryForeground:#cccccc;--vscode-button-secondaryHoverBackground:#3c3c3c;--vscode-badge-background:#616161;--vscode-badge-foreground:#f8f8f8;--vscode-textLink-foreground:#4daafc;--vscode-textLink-activeForeground:#4daafc;--vscode-textPreformat-foreground:#d0d0d0;--vscode-textPreformat-background:#3c3c3c;--vscode-textCodeBlock-background:#2b2b2b;--vscode-textBlockQuote-background:#2b2b2b;--vscode-textBlockQuote-border:#616161;--vscode-textSeparator-foreground:#21262d;--vscode-terminal-background:#181818;--vscode-terminal-foreground:#cccccc;">
+<html lang="en" data-codex-window-type="extension" data-theme="__THEME__" style="--vscode-font-family:-apple-system, BlinkMacSystemFont, sans-serif;--vscode-font-size:13px;--vscode-font-weight:normal;--vscode-editor-font-family:Menlo, Monaco, 'Courier New', monospace;--vscode-editor-font-size:12px;--vscode-editor-font-weight:normal;--vscode-foreground:#cccccc;--vscode-descriptionForeground:#9d9d9d;--vscode-disabledForeground:#cccccc80;--vscode-icon-foreground:#cccccc;--vscode-focusBorder:#0078d4;--vscode-widget-border:#313131;--vscode-sideBar-background:#181818;--vscode-editor-background:#1f1f1f;--vscode-panel-background:#181818;--vscode-editorWidget-background:#202020;--vscode-input-background:#313131;--vscode-input-foreground:#cccccc;--vscode-input-border:#3c3c3c;--vscode-input-placeholderForeground:#989898;--vscode-dropdown-background:#313131;--vscode-dropdown-foreground:#cccccc;--vscode-dropdown-border:#3c3c3c;--vscode-menu-background:#1f1f1f;--vscode-menu-foreground:#cccccc;--vscode-menu-selectionBackground:#0078d4;--vscode-menu-selectionForeground:#ffffff;--vscode-menu-border:#454545;--vscode-menu-separatorBackground:#454545;--vscode-list-hoverBackground:#2a2d2e;--vscode-list-activeSelectionBackground:#04395e;--vscode-list-activeSelectionForeground:#ffffff;--vscode-list-inactiveSelectionBackground:#37373d;--vscode-toolbar-hoverBackground:#5a5d5e50;--vscode-toolbar-activeBackground:#63666750;--vscode-button-background:#0078d4;--vscode-button-foreground:#ffffff;--vscode-button-hoverBackground:#026ec1;--vscode-button-secondaryBackground:#313131;--vscode-button-secondaryForeground:#cccccc;--vscode-button-secondaryHoverBackground:#3c3c3c;--vscode-badge-background:#616161;--vscode-badge-foreground:#f8f8f8;--vscode-textLink-foreground:#4daafc;--vscode-textLink-activeForeground:#4daafc;--vscode-textPreformat-foreground:#d0d0d0;--vscode-textPreformat-background:#3c3c3c;--vscode-textCodeBlock-background:#2b2b2b;--vscode-textBlockQuote-background:#2b2b2b;--vscode-textBlockQuote-border:#616161;--vscode-textSeparator-foreground:#21262d;--vscode-terminal-background:#181818;--vscode-terminal-foreground:#cccccc;--codex-chat-font-size-override:13px;">
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="app-initial.css">
@@ -1845,6 +1868,7 @@ function check(mode, r) {
     expect(r.bodyBg === 'rgb(27, 26, 24)', `panel background: ${r.bodyBg}`);
     expect(r.textFont.startsWith('"BiDi Rubik"'), `text font: ${r.textFont}`);
     expect(r.textSize === '15px' && r.lineHeight === '26.25px', `text: ${r.textSize} / ${r.lineHeight} (want 15px / 26.25px)`);
+    expect(d.chatFontSize === '15px' && d.chatFontSizeInline === '13px', `diagnostics: chat ${d.chatFontSize}, Codex's inline ${d.chatFontSizeInline} (want 15px over Codex's 13px)`);
     expect(r.textColor === 'rgb(235, 229, 218)', `text color: ${r.textColor}`);
     expect(r.h2 === '18px 600 rgb(245, 240, 232)', `h2: ${r.h2}`);
     expect(r.marker === 'rgb(217, 119, 87)', `list marker: ${r.marker}`);
@@ -1859,9 +1883,10 @@ function check(mode, r) {
     expect(r.editor === '18px 27px' && r.editorFont.startsWith('"BiDi Rubik"'), `composer text: ${r.editor} ${r.editorFont}`);
     expect(r.send === 'rgb(198, 97, 63) rgb(250, 249, 245)', `send button: ${r.send}`);
   } else {
-    // Only the body's theme kind differs from the dark page, so these check that none of the theme applies.
+    // Only the body's theme kind and <html>'s data-theme differ from the dark page, so these check that none of the theme applies.
     expect(r.fontsLoaded === 0, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 0)`);
     expect(!r.textFont.includes('BiDi Rubik') && r.textSize === '13px', `light theme text: ${r.textFont} ${r.textSize} (want VS Code's font at 13px)`);
+    expect(d.chatFontSize === '13px', `light theme chat size: ${d.chatFontSize} (want Codex's 13px)`);
     expect(r.bodyBg === 'rgba(0, 0, 0, 0)', `light theme paints the panel: ${r.bodyBg}`);
     expect(r.bubbleWidth < r.rowWidth && r.bubbleBar.startsWith('0px'), `light theme styles your message: ${r.bubbleWidth}px, bar ${r.bubbleBar}`);
     expect(!r.composer.includes('rgb(115, 106, 93)'), `light theme rings the composer: ${r.composer}`);
@@ -1927,7 +1952,7 @@ async function main() {
     const links = chunks.map((name) => `<link rel="stylesheet" href="${name}">`).join('\n');
     const modes = { dark: 'vscode-dark', light: 'vscode-light' };
     for (const [mode, kind] of Object.entries(modes)) {
-      fs.writeFileSync(path.join(work, `${mode}.html`), page.replace('__CHUNKS__', links).replace(/__THEME_KIND__/g, kind));
+      fs.writeFileSync(path.join(work, `${mode}.html`), page.replace('__CHUNKS__', links).replace(/__THEME_KIND__/g, kind).replace(/__THEME__/g, mode));
     }
 
     server = await serve(work);
@@ -2022,7 +2047,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 How activation treats Codex:
 - **Sync:** every sync (activation, `extensions.onDidChange`, each toggle) syncs Codex after Claude Code and the chat, through the same queue.
 - **The Codex switch:** while it is off, Codex is synced with no module enabled, so its blocks and fonts come out and the Theme and RTL flags stay as they are.
-- **Outcomes:** a Codex that links no stylesheet counts as `'error'` (it cannot be updated) and is said once per Codex version. With the switch off, it counts as `'unchanged'`, silently: nothing of ours can be in it.
+- **Outcomes:** a Codex that links no stylesheet counts as `'error'` (it cannot be updated). It is said once per Codex version when a window starts or Codex updates, and every time a toggle tries to style it *(changed during execution, final review)*. With the switch off, it counts as `'unchanged'`, silently: nothing of ours can be in it.
 - **Restart prompt:** a Codex change never asks to quit VS Code, since `chatChanged` stays about the workbench CSS only.
 
 - [ ] **Step 1: Teach the fake `vscode` about Codex and the clipboard**
@@ -2196,8 +2221,8 @@ const HEALTHY_CODEX_CSS = REQUIRED_CODEX_HOOKS.map((hook) =>
       assert.strictEqual(codexCssOf(codex), HEALTHY_CODEX_CSS);
       assert.deepStrictEqual(codexFontsIn(codex), []);
       assert.strictEqual(cssOf(claude), synced(['theme', 'rtl']));
-      assert.strictEqual(item('bidi-theme.toggle').text, '$(check) Theme');
-      assert.strictEqual(item('bidi-rtl.toggle').text, '$(check) RTL');
+      assert.strictEqual(context.globalState.get(THEME.flagKey, true), true); // the modules are left as they are
+      assert.strictEqual(context.globalState.get(RTL.flagKey, true), true);
       const prompt = fake.messages.find((m) => m.text === 'BiDi Codex: turned off. Reload window to apply.');
       assert.ok(prompt, texts('info').join('\n'));
       assert.deepStrictEqual(prompt.items, ['Reload Window']);
@@ -2251,6 +2276,25 @@ const HEALTHY_CODEX_CSS = REQUIRED_CODEX_HOOKS.map((hook) =>
       assert.ok(texts('warning')[1].includes('Codex 26.51022.10000'), texts('warning')[1]);
     });
 
+    test('a toggle on a Codex that links no stylesheet says why, every time; with Codex off it stays quiet', async () => {
+      await installCodex(VERSION, HEALTHY_CODEX_CSS, '<html></html>');
+      const context = await start();
+      assert.strictEqual(texts('warning').length, 1); // the window start, once per Codex version
+
+      await commands.executeCommand('bidi-codex.toggle'); // off: nothing of ours can be there
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false);
+      assert.strictEqual(texts('warning').length, 1);
+
+      await commands.executeCommand('bidi-codex.toggle'); // on: Codex cannot be styled, so it says why
+      await commands.executeCommand('bidi-codex.toggle'); // and again
+      assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false); // restored each time
+      assert.strictEqual(texts('warning').length, 3);
+      assert.ok(texts('warning').every((t) => t.includes(`Codex ${VERSION}`)), texts('warning').join('\n'));
+
+      await commands.executeCommand('bidi-theme.toggle'); // with Codex off, a module toggle leaves it alone
+      assert.strictEqual(texts('warning').length, 3);
+    });
+
     test('the Codex health warning shows once per Codex version, and only while the theme is on', async () => {
       const [first] = REQUIRED_CODEX_HOOKS;
       const broken = HEALTHY_CODEX_CSS.replace(`${first}abc12_1{color:red}`, '');
@@ -2283,6 +2327,7 @@ const HEALTHY_CODEX_CSS = REQUIRED_CODEX_HOOKS.map((hook) =>
       assert.ok(steps, texts('info').join('\n'));
       assert.ok(steps.includes('Developer: Open Webview Developer Tools'), steps);
       assert.ok(steps.includes('allow pasting'), steps);
+      assert.ok(steps.includes('active-frame'), steps);
     });
 
     test('a Codex CSS that cannot be written is shown, and does not hold back Claude Code', async () => {
@@ -2375,8 +2420,9 @@ const LAST_CODEX_LAYOUT_KEY = 'bidiCodex.lastLayoutWarnedVersion';
 const CODEX_DIAGNOSTICS = path.join('diagnostics', 'codex.js');
 const CODEX_DIAGNOSTICS_STEPS =
   'BiDi Codex: the diagnostics script is on the clipboard. Click in the Codex panel, run ' +
-  '"Developer: Open Webview Developer Tools" and open its Console. Type "allow pasting" the first time, ' +
-  'then paste and press Enter. The report it copies holds no message text.';
+  '"Developer: Open Webview Developer Tools" and open its Console. In the Console\'s context menu (top ' +
+  'left, it says "top"), pick an "active-frame" entry: with several, Codex\'s is one of them. Type ' +
+  '"allow pasting" the first time, then paste and press Enter. The report it copies holds no message text.';
 ```
 
 Replace `warnMissing` with:
@@ -2420,9 +2466,10 @@ After `warnIfChatUnhealthy`, add:
     void vscode.window.showWarningMessage(formatCodexHealthWarning(version, report));
   };
 
-  // A Codex that links no stylesheet is said once per Codex version, then only logged.
-  const warnCodexLayout = async (version: string): Promise<void> => {
-    if (context.globalState.get<string>(LAST_CODEX_LAYOUT_KEY) === version) {
+  // A Codex that links no stylesheet is said once per Codex version when a window starts or Codex
+  // updates, then only logged; a toggle the user runs always says so.
+  const warnCodexLayout = async (version: string, always: boolean): Promise<void> => {
+    if (!always && context.globalState.get<string>(LAST_CODEX_LAYOUT_KEY) === version) {
       console.error(codexLayoutWarning(version));
       return;
     }
@@ -2436,7 +2483,7 @@ After `syncChat`, add:
 ```ts
   // OpenAI's Codex panel: a webview whose stylesheet sits in Codex's install.
   // While the Codex switch is off, Codex is synced with nothing enabled.
-  const syncCodexPanel = async (enabled: ReadonlySet<FeatureId>, silent: boolean): Promise<SyncOutcome> => {
+  const syncCodexPanel = async (enabled: ReadonlySet<FeatureId>, silent: boolean, activation = false): Promise<SyncOutcome> => {
     const ext = vscode.extensions.getExtension(CODEX_EXTENSION_ID);
     if (!ext) {
       return 'missing';
@@ -2454,7 +2501,7 @@ After `syncChat`, add:
       if (!isCodexOn()) {
         return 'unchanged'; // nothing of ours can be there, and Codex is not to be styled
       }
-      await warnCodexLayout(version).catch((err: unknown) => {
+      await warnCodexLayout(version, !silent && !activation).catch((err: unknown) => {
         console.error(formatError('remember the Codex layout warning', err));
       });
       return 'error';
@@ -2480,7 +2527,7 @@ Replace `syncNow` with:
     const enabled = enabledIds();
     const claude = await syncClaudeCode(enabled, silent);
     const chat = await syncChat(enabled, silent, activation);
-    const codex = await syncCodexPanel(enabled, silent);
+    const codex = await syncCodexPanel(enabled, silent, activation);
     return { outcome: combineOutcomes([claude, chat, codex]), chatChanged: chat === 'changed' };
   };
 ```
@@ -2767,9 +2814,10 @@ After installing or updating, a quick check, in a dark theme with RTL on:
    8. after `BiDi Codex: Toggle Codex Styling On/Off` and a window reload, Codex looks as it did
       without the extension, and the Copilot chat keeps its theme. Run the command again, and
       reload, to bring the style back.
-3. Run `BiDi Codex: Copy Diagnostics Script` and follow the steps it shows. The script copies a
-   report on how the styles apply, without any message text. Paste the report into an issue,
-   with a screenshot of anything that looks wrong.
+3. Run `BiDi Codex: Copy Diagnostics Script` and follow the steps it shows: in the Console, pick
+   the `active-frame` entry before pasting. The script copies a report on how the styles apply,
+   without any message text; keep it with a screenshot of anything that looks wrong. A screenshot
+   can show conversations and file names, so check it before sharing it.
 ```
 
 - [ ] **Step 4: Update Install and Commands**
@@ -2799,7 +2847,8 @@ each time it opens its panel, so a change applies with a window reload, and ther
   update; if Codex's panel opened before that, reload the window to see the styles. While the
   theme is on, it checks that the parts of Codex it styles are still in Codex's stylesheets, and
   warns once per Codex version if some are gone. If Codex stops linking a stylesheet the extension
-  can find, the extension says so once per Codex version and leaves Codex as it is.
+  can find, the extension leaves Codex as it is and says so once per Codex version, and again each
+  time a toggle tries to style it.
 ```
 
 - In the uninstall bullet, change `from every Claude Code install and from the VS Code it was uninstalled in (restoring its checksum)` to `from every Claude Code install, from every Codex install and from the VS Code it was uninstalled in (restoring its checksum)`.
