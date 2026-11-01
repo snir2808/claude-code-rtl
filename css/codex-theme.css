@@ -7,7 +7,8 @@
    ([class*="_Name_"]: the class names carry a build hash) and a few semantic
    classes. Rules (enforced by src/test/codex-css.test.ts): every selector
    starts with body.vscode-dark or :root:has(>body.vscode-dark), only
-   @font-face at top level, !important only on the --vscode-* colors, and no
+   @font-face at top level, !important only on what VS Code and Codex write
+   inline on <html> (the --vscode-* colors and the chat size), and no
    direction, text-align or unicode-bidi (those belong to css/codex-rtl.css).
    The font files sit next to Codex's stylesheet. */
 
@@ -84,11 +85,12 @@ unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+
 /* Codex's own tokens. Codex declares them on :root and again on [data-theme]
    elements, in its theme layer, which an unlayered rule outranks. Without
    the two --app-color hooks, borders and secondary text are mixes of the
-   text color. */
+   text color. The chat size needs !important: Codex's own script writes it
+   inline on <html> from VS Code's chat.fontSize setting (13px by default). */
 :root:has(>body.vscode-dark),
 :root:has(>body.vscode-dark) [data-theme]{
 --font-ui-family:"BiDi Rubik",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
---codex-chat-font-size-override:15px;
+--codex-chat-font-size-override:15px!important;
 --app-color-border:#3b362f;
 --app-color-text-secondary:#a39d92;
 --color-background-user-message:#262320;

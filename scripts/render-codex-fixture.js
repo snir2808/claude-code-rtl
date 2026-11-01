@@ -72,6 +72,7 @@ function check(mode, r) {
     expect(r.bodyBg === 'rgb(27, 26, 24)', `panel background: ${r.bodyBg}`);
     expect(r.textFont.startsWith('"BiDi Rubik"'), `text font: ${r.textFont}`);
     expect(r.textSize === '15px' && r.lineHeight === '26.25px', `text: ${r.textSize} / ${r.lineHeight} (want 15px / 26.25px)`);
+    expect(d.chatFontSize === '15px' && d.chatFontSizeInline === '13px', `diagnostics: chat ${d.chatFontSize}, Codex's inline ${d.chatFontSizeInline} (want 15px over Codex's 13px)`);
     expect(r.textColor === 'rgb(235, 229, 218)', `text color: ${r.textColor}`);
     expect(r.h2 === '18px 600 rgb(245, 240, 232)', `h2: ${r.h2}`);
     expect(r.marker === 'rgb(217, 119, 87)', `list marker: ${r.marker}`);
@@ -86,9 +87,10 @@ function check(mode, r) {
     expect(r.editor === '18px 27px' && r.editorFont.startsWith('"BiDi Rubik"'), `composer text: ${r.editor} ${r.editorFont}`);
     expect(r.send === 'rgb(198, 97, 63) rgb(250, 249, 245)', `send button: ${r.send}`);
   } else {
-    // Only the body's theme kind differs from the dark page, so these check that none of the theme applies.
+    // Only the body's theme kind and <html>'s data-theme differ from the dark page, so these check that none of the theme applies.
     expect(r.fontsLoaded === 0, `BiDi Rubik faces loaded: ${r.fontsLoaded} (want 0)`);
     expect(!r.textFont.includes('BiDi Rubik') && r.textSize === '13px', `light theme text: ${r.textFont} ${r.textSize} (want VS Code's font at 13px)`);
+    expect(d.chatFontSize === '13px', `light theme chat size: ${d.chatFontSize} (want Codex's 13px)`);
     expect(r.bodyBg === 'rgba(0, 0, 0, 0)', `light theme paints the panel: ${r.bodyBg}`);
     expect(r.bubbleWidth < r.rowWidth && r.bubbleBar.startsWith('0px'), `light theme styles your message: ${r.bubbleWidth}px, bar ${r.bubbleBar}`);
     expect(!r.composer.includes('rgb(115, 106, 93)'), `light theme rings the composer: ${r.composer}`);
@@ -154,7 +156,7 @@ async function main() {
     const links = chunks.map((name) => `<link rel="stylesheet" href="${name}">`).join('\n');
     const modes = { dark: 'vscode-dark', light: 'vscode-light' };
     for (const [mode, kind] of Object.entries(modes)) {
-      fs.writeFileSync(path.join(work, `${mode}.html`), page.replace('__CHUNKS__', links).replace(/__THEME_KIND__/g, kind));
+      fs.writeFileSync(path.join(work, `${mode}.html`), page.replace('__CHUNKS__', links).replace(/__THEME_KIND__/g, kind).replace(/__THEME__/g, mode));
     }
 
     server = await serve(work);

@@ -104,6 +104,8 @@ suite('codex-rtl.css', () => {
 const DARK = 'body.vscode-dark';
 /** <html>, in dark themes: where VS Code writes its colors inline. */
 const DARK_ROOT = ':root:has(>body.vscode-dark)';
+/** Codex tokens that Codex's own script also writes inline on <html> (the chat size, from VS Code's chat.fontSize). */
+const INLINE_CODEX_TOKENS: readonly string[] = ['--codex-chat-font-size-override'];
 
 suite('codex-theme.css — rules', () => {
   let css: string;
@@ -143,7 +145,7 @@ suite('codex-theme.css — rules', () => {
     }
   });
 
-  test("!important only on the --vscode-* colors, which VS Code writes inline on <html>", () => {
+  test('!important only on what VS Code and Codex write inline on <html>: the --vscode-* colors and the chat size', () => {
     for (const rule of rules) {
       for (const declaration of rule.body.split(';').map((d) => d.trim()).filter(Boolean)) {
         const property = declaration.slice(0, declaration.indexOf(':')).trim();
@@ -151,11 +153,18 @@ suite('codex-theme.css — rules', () => {
         if (property.startsWith('--vscode-')) {
           assert.strictEqual(rule.prelude, DARK_ROOT, `${property} outside the palette rule`);
           assert.ok(important, `${property} needs !important to outrank VS Code's inline style`);
+        } else if (INLINE_CODEX_TOKENS.includes(property)) {
+          assert.strictEqual(splitSelectors(rule.prelude)[0], DARK_ROOT, `${property} outside the token rule`);
+          assert.ok(important, `${property} needs !important to outrank Codex's inline style`);
         } else {
           assert.ok(!important, `!important on ${property} in "${rule.prelude}"`);
         }
       }
     }
+    assert.ok(
+      rules.some((r) => /--codex-chat-font-size-override\s*:\s*15px\s*!\s*important/.test(r.body)),
+      'the chat size is not forced to 15px'
+    );
   });
 
   test('the palette redefines the VS Code colors Codex paints the panel with', () => {

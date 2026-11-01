@@ -138,11 +138,14 @@
     windowType: root.getAttribute('data-codex-window-type'),
     themeKind: doc.body.getAttribute('data-vscode-theme-kind'),
     blocks: {
-      theme: rootStyle.getPropertyValue('--codex-chat-font-size-override').trim() === '15px',
+      // A color only the theme block sets: Codex's own script writes the chat size, so that can't tell.
+      theme: rootStyle.getPropertyValue('--vscode-sideBar-background').trim().toLowerCase() === '#1b1a18',
       rtl: paragraph ? style(paragraph).unicodeBidi === 'plaintext' : null,
     },
     rubik: [...doc.fonts].filter((f) => f.family.replace(/"/g, '') === 'BiDi Rubik').map((f) => f.status),
     chatFontSize: rootStyle.getPropertyValue('--codex-chat-font-size').trim(),
+    // What Codex's own script wrote on <html>, from VS Code's chat.fontSize.
+    chatFontSizeInline: root.style.getPropertyValue('--codex-chat-font-size-override').trim(),
     counts,
     samples,
     containers,
