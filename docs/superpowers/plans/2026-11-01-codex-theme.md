@@ -1482,10 +1482,12 @@ Expected: PASS.
 ```js
 // BiDi RTL & Theme: a report on how the extension's blocks apply in the Codex panel, for its
 // DevTools console. Click in the Codex panel, run "Developer: Open Webview Developer Tools", open
-// the Console, type "allow pasting" the first time, then paste this and press Enter. It reads the
-// page's structure and computed styles and never exports message text or anything from your files:
-// the report holds class and data-attribute names, the page's window type and theme kind, computed
-// styles, and the names of Codex's own stylesheets. It goes to the clipboard as JSON.
+// the Console, pick an "active-frame" entry in its context menu (top left; with several, Codex's
+// is one of them), type "allow pasting" the first time, then paste this and press Enter. It reads
+// the page's structure and computed styles and never exports message text or anything from your
+// files: the report holds class and data-attribute names, the page's window type and theme kind,
+// computed styles, and the names of Codex's own stylesheets. It prints a one-line summary and
+// copies the report to the clipboard as JSON.
 (function bidiCodexDiagnostics() {
   'use strict';
   // What the blocks style, as css/codex-theme.css and css/codex-rtl.css match it.
@@ -2281,18 +2283,21 @@ const HEALTHY_CODEX_CSS = REQUIRED_CODEX_HOOKS.map((hook) =>
       const context = await start();
       assert.strictEqual(texts('warning').length, 1); // the window start, once per Codex version
 
+      await commands.executeCommand('bidi-theme.toggle'); // a module toggle tries to style Codex too
+      assert.strictEqual(texts('warning').length, 2);
+
       await commands.executeCommand('bidi-codex.toggle'); // off: nothing of ours can be there
       assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false);
-      assert.strictEqual(texts('warning').length, 1);
+      assert.strictEqual(texts('warning').length, 2);
 
       await commands.executeCommand('bidi-codex.toggle'); // on: Codex cannot be styled, so it says why
       await commands.executeCommand('bidi-codex.toggle'); // and again
       assert.strictEqual(context.globalState.get('bidiCodex.enabled'), false); // restored each time
-      assert.strictEqual(texts('warning').length, 3);
+      assert.strictEqual(texts('warning').length, 4);
       assert.ok(texts('warning').every((t) => t.includes(`Codex ${VERSION}`)), texts('warning').join('\n'));
 
       await commands.executeCommand('bidi-theme.toggle'); // with Codex off, a module toggle leaves it alone
-      assert.strictEqual(texts('warning').length, 3);
+      assert.strictEqual(texts('warning').length, 4);
     });
 
     test('the Codex health warning shows once per Codex version, and only while the theme is on', async () => {
@@ -2822,7 +2827,7 @@ After installing or updating, a quick check, in a dark theme with RTL on:
 
 - [ ] **Step 4: Update Install and Commands**
 
-- In `## Install`, change both `vscode-bidi-rtl-0.2.0.vsix` to `vscode-bidi-rtl-0.3.0.vsix`. In step 3, change `to Claude Code and to the Copilot chat` to `to Claude Code, the Copilot chat and Codex`, and `(for the chat,` to `(for the Copilot chat,` *(the second change was added by the Task 7 review)*.
+- In `## Install`, change both `vscode-bidi-rtl-0.2.0.vsix` to `vscode-bidi-rtl-0.3.0.vsix`. In step 3, change `to Claude Code and to the Copilot chat` to `to Claude Code, the Copilot chat and Codex`, and `(for the chat,` to `(for the Copilot chat,` *(the second change was added by the Task 7 review)*. In step 1, change `[latest release](../../releases/latest)` to `[releases page](../../releases)`: `/releases/latest` skips pre-releases and shows the latest regular release *(changed during execution, final review)*.
 - In the `## Commands` table, after the `BiDi Theme: Toggle Warm Theme On/Off` row, add:
 
 ```markdown
