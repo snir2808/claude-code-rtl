@@ -81,7 +81,7 @@
   - Code keeps the editor font.
 - Tests must never touch a real VS Code or Codex install, the Keychain, the network or child processes. `src/test/setup.ts` already blocks processes and `fetch`.
 - The fixture only reads the Codex install; it writes to a temp folder.
-- The unpacked Codex 26.51021.22027 (darwin-arm64) for the fixture is at `/private/tmp/claude-501/-Users-snirhakmoun/deb757a7-607a-4128-a1b1-c3bec6783887/scratchpad/codex/extension`. It goes away with that session's scratchpad. Task 4, Step 1 says how to download it again.
+- The unpacked Codex 26.51021.22027 (darwin-arm64) for the fixture is at `<scratchpad>/codex/extension`, in the planning session's temporary scratchpad folder. It goes away with that scratchpad. Task 4, Step 1 says how to download it again.
 - Tests: `npm test` compiles, then runs mocha on `out/test/**/*.test.js`. Tests use `suite`/`test`.
 - Version 0.3.0. The extension `name` stays `vscode-bidi-rtl`, so the id stays `local.vscode-bidi-rtl`.
 - Commits: a conventional-commit subject, and a body that ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never push.
@@ -1388,7 +1388,7 @@ The page loads Codex's main stylesheet and the conversation's CSS chunks, the wa
 
 - [ ] **Step 1: Make sure the unpacked Codex is there**
 
-Run: `ls /private/tmp/claude-501/-Users-snirhakmoun/deb757a7-607a-4128-a1b1-c3bec6783887/scratchpad/codex/extension/webview/index.html`
+Run: `ls <scratchpad>/codex/extension/webview/index.html`
 Expected: the path is printed. If it is missing (another session), download Codex 26.51021.22027 for darwin-arm64 from the Marketplace and unpack it. Only read its files; never run anything from it:
 
 ```bash
